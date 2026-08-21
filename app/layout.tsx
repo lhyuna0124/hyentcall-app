@@ -1,6 +1,7 @@
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import NavBar from "./NavBar";
+import StaffBoardSidebar from "./StaffBoardSidebar";
 
 export const metadata = {
   title: "HY-ENT Workspace",
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AuthProvider>
           <NavBar />
+          <StaffBoardSidebar />
           <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
         </AuthProvider>
       </body>

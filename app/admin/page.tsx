@@ -137,6 +137,22 @@ export default function AdminPage() {
   }, []);
   const mdtFiltered = mdtList.filter((p) => mdtSiteFilter === "전체" || p.site === mdtSiteFilter);
 
+  // --- Staff 일정 / 공지 게시판 ---
+  const [boardContent, setBoardContent] = useState("");
+  const [boardSaving, setBoardSaving] = useState(false);
+  const [boardSaved, setBoardSaved] = useState(false);
+  useEffect(() => {
+    fetch("/api/board").then((r) => r.json()).then((d) => setBoardContent(d.content || "")).catch(() => {});
+  }, []);
+
+  async function saveBoard() {
+    setBoardSaving(true);
+    await fetch("/api/board", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: boardContent }) });
+    setBoardSaving(false);
+    setBoardSaved(true);
+    setTimeout(() => setBoardSaved(false), 2000);
+  }
+
   async function handleDeleteEvaluation(id: string) {
     if (!confirm("이 평가 기록을 삭제할까요?")) return;
     await fetch(`/api/evaluations?id=${id}`, { method: "DELETE" });
@@ -168,6 +184,26 @@ export default function AdminPage() {
   return (
     <div className="space-y-8 pb-20">
       <h1 className="text-xl font-semibold text-slate-800">관리자</h1>
+
+      {/* Staff 일정 / 공지 게시판 */}
+      <section className="card space-y-2">
+        <h2 className="font-medium text-slate-700">Staff 일정 / 공지 게시판</h2>
+        <p className="text-xs text-slate-400">
+          여기에 적은 내용이 모든 로그인 사용자 화면 오른쪽 사이드바(넓은 화면에서만)에 표시됩니다. 예: 교수님 해외학회/휴진 안내, 주간 staff 순번 등을 자유 형식으로 적어두세요.
+        </p>
+        <textarea
+          className="input min-h-[140px] font-mono text-sm"
+          placeholder={"예)\n8/30-9/5 이현아 교수님 해외학회, 노티 X\n\n[주간 Staff]\n9/5-9/11 곽진혜\n9/12-9/18 이현아\n9/19-9/25 박민규"}
+          value={boardContent}
+          onChange={(e) => setBoardContent(e.target.value)}
+        />
+        <div className="flex items-center gap-3">
+          <button className="btn" onClick={saveBoard} type="button" disabled={boardSaving}>
+            {boardSaving ? "저장 중..." : "게시판 저장"}
+          </button>
+          {boardSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
+        </div>
+      </section>
 
       {/* 전공의 요약 */}
       <section className="card">
