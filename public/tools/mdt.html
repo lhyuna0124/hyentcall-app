@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H&N MDT 스마트 대시보드 V2</title>
+    <style>
+        body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f4f7f6; padding: 20px; color: #333; margin: 0; }
+        .container { max-width: 1000px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        
+        /* 상단 컨트롤 툴바 */
+        .toolbar { background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between; }
+        .toolbar-group { display: flex; gap: 10px; align-items: center; }
+        .toolbar select { width: 230px; padding: 8px; border-radius: 4px; border: none; font-size: 14px; font-family: inherit; outline: none; cursor: pointer; }
+        .btn-tool { color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s; }
+        .btn-save { background: #f39c12; } .btn-save:hover { background: #d68910; }
+        .btn-export { background: #8e44ad; } .btn-export:hover { background: #732d91; }
+        .btn-print { background: #27ae60; } .btn-print:hover { background: #2ecc71; }
+        .btn-reset { background: #e74c3c; } .btn-reset:hover { background: #c0392b; }
+
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 25px; }
+        h1 { margin-top: 0; }
+        
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 15px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px; }
+        label { font-weight: bold; color: #34495e; display: block; margin-bottom: 5px; font-size: 14px; }
+        
+        input[type="text"], textarea, select {
+            width: 100%; border: 1px solid #bdc3c7; padding: 10px; border-radius: 4px;
+            background: #f9fbfc; box-sizing: border-box; outline: none; font-family: inherit; font-size: 14px; line-height: 1.5;
+        }
+        input[type="text"]:focus, textarea:focus, select:focus { border-color: #3498db; background: #fff; box-shadow: 0 0 5px rgba(52, 152, 219, 0.2); }
+        textarea.auto-expand { resize: none; overflow: hidden; min-height: 41px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; table-layout: fixed; }
+        th, td { border: 1px solid #bdc3c7; padding: 0; text-align: center; vertical-align: top; }
+        th { background-color: #34495e; color: white; padding: 10px; font-size: 14px; }
+        
+        td input[type="text"], td textarea { border: none; border-radius: 0; margin: 0; background: transparent; padding: 10px; }
+        td input[type="text"]:focus, td textarea:focus { box-shadow: inset 0 0 0 2px #3498db; background: #fff; }
+
+        .btn { background: #3498db; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .btn:hover { background: #2980b9; }
+        .btn-sm { background: #e74c3c; padding: 6px 10px; font-size: 12px; display: inline-block; margin-top: 10px; }
+        .btn-sm:hover { background: #c0392b; }
+
+        .todo-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 15px; border-radius: 5px; margin-top: 15px; display: none; }
+        .radio-group { display: flex; gap: 20px; background: #ecf0f1; padding: 15px; border-radius: 5px; flex-wrap: wrap; }
+        .radio-group label { cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 5px; font-size: 14px; margin: 0; }
+        
+        .pmh-checkboxes { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 8px; background: #f1f5f9; padding: 10px; border-radius: 4px; }
+        .pmh-checkboxes label { font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; margin: 0; color: #2c3e50; }
+
+        #summary-box { width: 100%; min-height: 250px; background: #f8f9fa; border: 1px dashed #ced4da; padding: 15px; font-family: 'Malgun Gothic', monospace; font-size: 14px; margin-top: 15px; white-space: pre-wrap; outline: none; line-height: 1.6; resize: vertical; }
+        
+        .pi-btn { margin-left: 8px; padding: 4px 10px; font-size: 12px; background: #e67e22; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .pi-btn:hover { background: #d35400; }
+
+        /* ================= 프린트 전용 마법의 스타일 ================= */
+        #print-section { display: none; }
+        
+        @media print {
+            body { background: #fff; margin: 0; padding: 0; }
+            .container { display: none !important; } /* 화면용 UI 전부 숨김 */
+            #print-section { display: block !important; width: 100%; } /* 프린트용 구역만 노출 */
+            
+            #print-header { text-align: center; font-size: 20pt; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 25px; }
+            #print-content { white-space: pre-wrap; word-wrap: break-word; font-family: 'Malgun Gothic', serif; font-size: 12pt; line-height: 1.8; color: #000; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <select id="p-hospital" onchange="onHospitalChange()" style="width:110px; font-weight:bold;">
+                <option value="구리">구리병원</option>
+                <option value="서울">서울병원</option>
+            </select>
+            <select id="patient-select" onchange="loadFromList()">
+                <option value="">-- 서버에 저장된 환자 목록 --</option>
+            </select>
+            <button class="btn-tool btn-save" onclick="saveToList()">💾 서버에 저장</button>
+            <button class="btn-tool btn-reset" onclick="deleteFromList()" style="padding: 8px; font-size: 11px;">삭제</button>
+        </div>
+        <div class="toolbar-group">
+            <span style="color:#7f8c8d;">|</span>
+            <button class="btn-tool btn-export" onclick="exportData()">📤 파일 내보내기</button>
+            <button class="btn-tool btn-export" onclick="document.getElementById('import-file').click()">📥 파일 불러오기</button>
+            <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+            <span style="color:#7f8c8d;">|</span>
+            <button class="btn-tool btn-print" onclick="printSummary()">🖨️ 요약본 인쇄</button>
+            <button class="btn-tool btn-reset" onclick="clearForm()">🔄 새 환자 작성</button>
+        </div>
+    </div>
+
+    <h1>두경부암 MDT 스마트 입력기 <span id="draft-status" style="font-size:12px; color:#bdc3c7; font-weight:normal; float:right; margin-top:15px;"></span></h1>
+    
+    <h2>1. 환자 인적사항 및 진단 정보</h2>
+    <div class="grid-4">
+        <div><label>등록번호 (*목록 저장 필수)</label><input type="text" id="p-id"></div>
+        <div><label>이름 (*목록 저장 필수)</label><input type="text" id="p-name"></div>
+        <div>
+            <label>성별</label>
+            <select id="p-sex">
+                <option value="">선택</option>
+                <option value="M">M (남성)</option>
+                <option value="F">F (여성)</option>
+            </select>
+        </div>
+        <div><label>나이</label><input type="text" id="p-age"></div>
+    </div>
+    
+    <div style="margin-bottom: 15px;">
+        <label>최종진단명 (Primary Site)</label>
+        <input type="text" id="p-dx" placeholder="예: Tongue cancer">
+    </div>
+    
+    <div class="grid-2">
+        <div><label>주소증 (C/C)</label><input type="text" id="p-cc" placeholder="예: 우측 경부 종괴"></div>
+        <div><label>Onset</label><input type="text" id="p-onset" placeholder="예: 2개월 전"></div>
+    </div>
+    
+    <div style="margin-bottom: 15px; background: #fffdf5; padding: 15px; border-radius: 5px; border: 1px solid #fdebd0;">
+        <label style="display: flex; align-items: center; color: #d35400;">
+            📝 현병력 (Present Illness) 
+            <button class="pi-btn" onclick="autoGeneratePI()">⚡ 문장 자동 완성</button>
+        </label>
+        <textarea id="p-pi" class="auto-expand" rows="2" placeholder="주소증/진단명 입력 후 자동 완성 버튼을 누르거나, 복잡한 히스토리가 있다면 직접 자유롭게 타이핑하세요..."></textarea>
+    </div>
+    
+    <div style="margin-bottom: 15px;">
+        <label>기저질환 (Underlying Disease) 및 사회력</label>
+        <div class="pmh-checkboxes">
+            <label><input type="checkbox" name="pmh_chk" value="HTN"> HTN</label>
+            <label><input type="checkbox" name="pmh_chk" value="DM"> DM</label>
+            <label><input type="checkbox" name="pmh_chk" value="Asthma"> Asthma</label>
+            <label><input type="checkbox" name="pmh_chk" value="Pul. Tb"> Pul. Tb</label>
+            <label><input type="checkbox" name="pmh_chk" value="Dyslipidemia"> Dyslipidemia</label>
+            <span style="color:#bdc3c7;">|</span>
+            <label><input type="checkbox" name="pmh_chk" value="Smoking"> 흡연(Smoker)</label>
+            <label><input type="checkbox" name="pmh_chk" value="Alcohol"> 음주(Alcohol)</label>
+        </div>
+        <textarea id="p-pmh" class="auto-expand" rows="1" placeholder="기타 기저질환 직접 기입 (예: Hepatitis, s/p cerebral hemorrhage 등)..."></textarea>
+    </div>
+
+    <div class="grid-2" style="margin-bottom: 15px; background: #e8f4f8; padding: 15px; border-radius: 5px;">
+        <div><label>🩸 eGFR (신기능 / CTx 대비)</label><input type="text" id="p-egfr" placeholder="예: 85.4 ml/min"></div>
+        <div><label>🦷 치과 진료 내역 (RTx 대비)</label><input type="text" id="p-dental" placeholder="예: 우측 하악 대구치 발치 완료"></div>
+    </div>
+
+    <h2>2. 환자 유형 선택 (To-Do)</h2>
+    <div class="radio-group">
+        <label><input type="radio" name="ptype" value="post" onchange="showTodo(this.value)"> 수술 후 환자</label>
+        <label><input type="radio" name="ptype" value="pre" onchange="showTodo(this.value)"> 수술 전/미결정</label>
+        <label><input type="radio" name="ptype" value="mal" onchange="showTodo(this.value)"> Malignancy 여부 토론</label>
+        <label><input type="radio" name="ptype" value="adv" onchange="showTodo(this.value)"> 다회 수술/재발</label>
+    </div>
+    <div id="todo-container" class="todo-box"></div>
+
+    <h2>3. 임상 데이터 (수술 및 병리)</h2>
+    <table id="surg-table">
+        <thead>
+            <tr>
+                <th style="width: 25%;">수술명</th>
+                <th style="width: 20%;">날짜 (8자리 자동변환)</th>
+                <th style="width: 45%;">병리결과</th>
+                <th style="width: 10%;">관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><textarea class="auto-expand surg-name" rows="1" placeholder="수술명 입력"></textarea></td>
+                <td><input type="text" class="date-input surg-date" placeholder="예: 20260520" maxlength="10" style="text-align:center;"></td>
+                <td><textarea class="auto-expand surg-path" rows="1" placeholder="소견 입력"></textarea></td>
+                <td style="vertical-align: middle;"><button class="btn btn-sm" onclick="deleteRow(this)">삭제</button></td>
+            </tr>
+        </tbody>
+    </table>
+    <button class="btn" style="background:#95a5a6;" onclick="addRow('surg-table')">+ 수술 추가</button>
+
+    <h2>4. 임상 데이터 (영상 검사)</h2>
+    <table id="img-table">
+        <thead>
+            <tr>
+                <th style="width: 20%;">검사명</th>
+                <th style="width: 20%;">날짜 (8자리 자동변환)</th>
+                <th style="width: 50%;">주요 소견</th>
+                <th style="width: 10%;">관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><textarea class="auto-expand img-name" rows="1">PET-CT</textarea></td>
+                <td><input type="text" class="date-input img-date" placeholder="예: 20260520" maxlength="10" style="text-align:center;"></td>
+                <td><textarea class="auto-expand img-desc" rows="1" placeholder="소견 입력"></textarea></td>
+                <td style="vertical-align: middle;"><button class="btn btn-sm" onclick="deleteRow(this)">삭제</button></td>
+            </tr>
+            <tr>
+                <td><textarea class="auto-expand img-name" rows="1">HN CT</textarea></td>
+                <td><input type="text" class="date-input img-date" placeholder="예: 20260520" maxlength="10" style="text-align:center;"></td>
+                <td><textarea class="auto-expand img-desc" rows="1" placeholder="소견 입력"></textarea></td>
+                <td style="vertical-align: middle;"><button class="btn btn-sm" onclick="deleteRow(this)">삭제</button></td>
+            </tr>
+            <tr>
+                <td><textarea class="auto-expand img-name" rows="1">HN MRI</textarea></td>
+                <td><input type="text" class="date-input img-date" placeholder="예: 20260520" maxlength="10" style="text-align:center;"></td>
+                <td><textarea class="auto-expand img-desc" rows="1" placeholder="소견 입력"></textarea></td>
+                <td style="vertical-align: middle;"><button class="btn btn-sm" onclick="deleteRow(this)">삭제</button></td>
+            </tr>
+        </tbody>
+    </table>
+    <button class="btn" style="background:#95a5a6;" onclick="addRow('img-table')">+ 검사 추가</button>
+
+    <h2>5. MDT 요약 결과 (복사 및 인쇄용)</h2>
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <button class="btn" onclick="generateSummary()">내용 정리하기 (과거순 자동 정렬)</button>
+        <button class="btn" style="background:#2ecc71;" onclick="copyText()">전체 복사</button>
+    </div>
+    <textarea id="summary-box" placeholder="내용 정리하기 버튼을 누르면 현병력이 포함되어 과거 기록부터 순서대로 요약됩니다. 요약창에서 내용을 덧붙여 수정하신 뒤 복사하거나 인쇄하세요!"></textarea>
+</div>
+
+<div id="print-section">
+    <h2 id="print-header">다학제(MDT) 진료 환자 요약지</h2>
+    <div id="print-content"></div>
+</div>
+
+<script>
+    // ==========================================
+    // 💡 1. 상태 캡처 및 화면 복원 로직 (공유/저장용 코어)
+    // ==========================================
+    function getFormState() {
+        const val = id => document.getElementById(id) ? document.getElementById(id).value.trim() : "";
+        return {
+            hospital: val('p-hospital') || '구리',
+            id: val('p-id'), name: val('p-name'), sex: val('p-sex'), age: val('p-age'),
+            dx: val('p-dx'), cc: val('p-cc'), onset: val('p-onset'), pi: val('p-pi'),
+            pmh: val('p-pmh'), egfr: val('p-egfr'), dental: val('p-dental'),
+            pmh_chk: Array.from(document.querySelectorAll('input[name="pmh_chk"]:checked')).map(el => el.value),
+            ptype: document.querySelector('input[name="ptype"]:checked')?.value || '',
+            surg: Array.from(document.querySelectorAll('#surg-table tbody tr')).map(r => ({
+                name: r.querySelector('.surg-name').value, date: r.querySelector('.surg-date').value, path: r.querySelector('.surg-path').value
+            })),
+            img: Array.from(document.querySelectorAll('#img-table tbody tr')).map(r => ({
+                name: r.querySelector('.img-name').value, date: r.querySelector('.img-date').value, desc: r.querySelector('.img-desc').value
+            })),
+            summary: val('summary-box')
+        };
+    }
+
+    function setFormState(data, silent = false) {
+        if (!silent) clearForm(true); 
+        const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).value = val || ""; };
+        
+        if (data.hospital && document.getElementById('p-hospital')) document.getElementById('p-hospital').value = data.hospital;
+        setVal('p-id', data.id); setVal('p-name', data.name); setVal('p-sex', data.sex); setVal('p-age', data.age);
+        setVal('p-dx', data.dx); setVal('p-cc', data.cc); setVal('p-onset', data.onset); setVal('p-pi', data.pi); 
+        setVal('p-pmh', data.pmh); setVal('p-egfr', data.egfr); setVal('p-dental', data.dental);
+        setVal('summary-box', data.summary);
+        
+        if (data.pmh_chk) {
+            data.pmh_chk.forEach(v => {
+                const chk = document.querySelector(`input[name="pmh_chk"][value="${v}"]`);
+                if(chk) chk.checked = true;
+            });
+        }
+        
+        if (data.ptype) {
+            const r = document.querySelector(`input[name="ptype"][value="${data.ptype}"]`);
+            if(r) { r.checked = true; showTodo(data.ptype); }
+        }
+
+        const sTbody = document.querySelector('#surg-table tbody');
+        sTbody.innerHTML = '';
+        if(data.surg && data.surg.length > 0) {
+            data.surg.forEach(s => {
+                addRow('surg-table');
+                let last = sTbody.lastElementChild;
+                last.querySelector('.surg-name').value = s.name;
+                last.querySelector('.surg-date').value = s.date;
+                last.querySelector('.surg-path').value = s.path;
+            });
+        } else { addRow('surg-table'); }
+
+        const iTbody = document.querySelector('#img-table tbody');
+        iTbody.innerHTML = '';
+        if(data.img && data.img.length > 0) {
+            data.img.forEach(i => {
+                addRow('img-table');
+                let last = iTbody.lastElementChild;
+                last.querySelector('.img-name').value = i.name;
+                last.querySelector('.img-date').value = i.date;
+                last.querySelector('.img-desc').value = i.desc;
+            });
+        } else {
+            addRow('img-table'); iTbody.lastElementChild.querySelector('.img-name').value = "PET-CT";
+            addRow('img-table'); iTbody.lastElementChild.querySelector('.img-name').value = "HN CT";
+            addRow('img-table'); iTbody.lastElementChild.querySelector('.img-name').value = "HN MRI";
+        }
+        resizeTextareas();
+    }
+
+    function clearForm(skipConfirm = false) {
+        if(!skipConfirm && !confirm("모든 내용을 지우고 새 환자를 작성하시겠습니까? (저장하지 않은 데이터는 날아갑니다!)")) return;
+        
+        document.querySelectorAll('input[type="text"], textarea').forEach(el => el.value = '');
+        document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => el.checked = false);
+        document.getElementById('p-sex').value = '';
+        document.getElementById('todo-container').style.display = 'none';
+        
+        document.querySelector('#surg-table tbody').innerHTML = ''; addRow('surg-table');
+        
+        const iTbody = document.querySelector('#img-table tbody');
+        iTbody.innerHTML = '';
+        addRow('img-table'); iTbody.lastElementChild.querySelector('.img-name').value = "PET-CT";
+        addRow('img-table'); iTbody.lastElementChild.querySelector('.img-name').value = "HN CT";
+        addRow('img-table'); iTbody.lastElementChild.querySelector('.img-name').value = "HN MRI";
+        
+        if(!skipConfirm) {
+            localStorage.removeItem('HNMDT_draft'); 
+            document.getElementById('patient-select').value = "";
+            document.getElementById('draft-status').innerText = "";
+            resizeTextareas();
+        }
+    }
+
+    // ==========================================
+    // 💡 2. 파일 저장 / 공유 / 프린트 로직
+    // ==========================================
+    
+    // [기능1] 서버(병원 공용)에 저장 - 같은 앱에 로그인한 누구나 접근 가능
+    async function saveToList() {
+        let ptId = document.getElementById('p-id').value.trim();
+        let ptName = document.getElementById('p-name').value.trim();
+        if (!ptId || !ptName) { alert("목록에 저장하려면 '등록번호'와 '이름'을 필수로 윗칸에 입력해야 합니다."); return; }
+
+        let data = getFormState();
+        let key = `${ptName} (${ptId})`;
+        try {
+            const res = await fetch('/api/mdt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, hospital: data.hospital, patientId: ptId, patientName: ptName, data })
+            });
+            if (!res.ok) throw new Error('save failed');
+            alert(`'${key}' 환자 정보가 서버(${data.hospital}병원 목록)에 저장되었습니다.\n같은 앱에 로그인한 다른 선생님도 조회할 수 있습니다.`);
+            await updateDropdown();
+            document.getElementById('patient-select').value = key;
+        } catch (e) {
+            alert('저장에 실패했습니다. 네트워크 상태를 확인해주세요.');
+        }
+    }
+
+    // 목록 드롭다운 업데이트 (선택된 병원 기준으로만 필터링)
+    async function updateDropdown() {
+        const hospital = document.getElementById('p-hospital').value || '구리';
+        let select = document.getElementById('patient-select');
+        select.innerHTML = `<option value="">-- ${hospital}병원 저장 환자 목록 --</option>`;
+        try {
+            const res = await fetch(`/api/mdt?hospital=${encodeURIComponent(hospital)}`);
+            const list = await res.json(); // [{key, hospital, patientId, patientName, updatedAt}, ...]
+            list.forEach(item => {
+                let opt = document.createElement('option');
+                opt.value = item.key; opt.innerText = item.key;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            // 네트워크 오류 시 조용히 무시 (목록만 비어있게 됨)
+        }
+    }
+
+    function onHospitalChange() {
+        document.getElementById('patient-select').value = '';
+        updateDropdown();
+    }
+
+    async function loadFromList() {
+        let key = document.getElementById('patient-select').value;
+        if(!key) return;
+        const hospital = document.getElementById('p-hospital').value || '구리';
+        try {
+            const res = await fetch(`/api/mdt?hospital=${encodeURIComponent(hospital)}&key=${encodeURIComponent(key)}`);
+            const item = await res.json();
+            if (item && item.data) {
+                if(confirm(`[${key}] 환자 정보를 화면에 불러오시겠습니까?\n(현재 작성 중이던 내용은 덮어쓰기 됩니다)`)) {
+                    setFormState(item.data);
+                    document.getElementById('patient-select').value = key;
+                } else {
+                    document.getElementById('patient-select').value = "";
+                }
+            }
+        } catch (e) {
+            alert('불러오기에 실패했습니다.');
+        }
+    }
+
+    // 환자 삭제
+    async function deleteFromList() {
+        let key = document.getElementById('patient-select').value;
+        if(!key) { alert('삭제할 환자를 목록에서 먼저 선택해주세요.'); return; }
+        const hospital = document.getElementById('p-hospital').value || '구리';
+        if(confirm(`정말 '${key}' 환자의 서버 저장 기록을 영구 삭제하시겠습니까?`)) {
+            try {
+                await fetch(`/api/mdt?hospital=${encodeURIComponent(hospital)}&key=${encodeURIComponent(key)}`, { method: 'DELETE' });
+                await updateDropdown();
+                clearForm(true);
+                alert("삭제 완료되었습니다.");
+            } catch (e) {
+                alert('삭제에 실패했습니다.');
+            }
+        }
+    }
+
+    // [기능2] 파일로 내보내기 (.json)
+    function exportData() {
+        let data = getFormState();
+        let ptName = data.name || '이름미상';
+        let jsonStr = JSON.stringify(data);
+        
+        // 한글 깨짐 방지용 Blob 파일 생성
+        let blob = new Blob([jsonStr], { type: "application/json" });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = `MDT_환자정보_${ptName}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        alert("📥 파일이 다운로드 되었습니다.\n이 파일을 병원 메신저나 카카오톡, 공유 폴더로 전송하세요!");
+    }
+
+    // [기능2] 파일 불러오기 (.json)
+    function importData(event) {
+        let file = event.target.files[0];
+        if(!file) return;
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                let data = JSON.parse(e.target.result);
+                setFormState(data);
+                alert("파일을 성공적으로 불러왔습니다!");
+                document.getElementById('import-file').value = ""; 
+            } catch(err) { alert("파일 형식이 잘못되었습니다."); }
+        };
+        reader.readAsText(file);
+    }
+
+    // [기능3] A4 프린트 전용 모드
+    function printSummary() {
+        generateSummary(); // 프린트 전 요약 내용 최신화 보장
+        let text = document.getElementById('summary-box').value.trim();
+        let ptName = document.getElementById('p-name').value.trim();
+        let ptId = document.getElementById('p-id').value.trim();
+        
+        if(!text || text === "- 해당사항 없음") {
+            alert("먼저 내용을 입력하고 '내용 정리하기'를 눌러 요약본을 생성해주세요.");
+            return;
+        }
+        
+        // 프린트 전용 숨겨진 구역에 텍스트 복사 및 환자 정보 헤더 생성
+        let headerText = "다학제(MDT) 진료 환자 요약지";
+        if(ptName || ptId) {
+            headerText += `<br><span style="font-size:14pt; color:#34495e;">환자: ${ptName} (${ptId})</span>`;
+        }
+        
+        document.getElementById('print-header').innerHTML = headerText;
+        document.getElementById('print-content').innerText = text;
+        
+        window.print(); // 마법의 브라우저 인쇄 창 띄우기
+    }
+
+    // ==========================================
+    // 💡 3. UI 자동화 (늘어남, 날짜, 현병력, 자동저장)
+    // ==========================================
+    
+    let draftTimeout;
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('auto-expand')) {
+            e.target.style.height = 'auto'; 
+            e.target.style.height = e.target.scrollHeight + 'px'; 
+        }
+
+        if (e.target.classList.contains('date-input')) {
+            let val = e.target.value.replace(/[^0-9]/g, ''); 
+            if (val.length === 8 && !e.target.value.includes('.')) {
+                e.target.value = val.substring(0,4) + '.' + val.substring(4,6) + '.' + val.substring(6,8);
+                let td = e.target.closest('td');
+                if (td && td.nextElementSibling) {
+                    let nextInput = td.nextElementSibling.querySelector('input, textarea');
+                    if (nextInput) nextInput.focus();
+                }
+            }
+        }
+
+        // 키보드를 치고 1초간 가만히 있으면 알아서 임시저장 (날아감 방지)
+        clearTimeout(draftTimeout);
+        draftTimeout = setTimeout(() => {
+            localStorage.setItem('HNMDT_draft', JSON.stringify(getFormState()));
+            let d = new Date();
+            document.getElementById('draft-status').innerText = `✔️ 임시저장됨 (${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')})`;
+        }, 1000);
+    });
+    
+    document.addEventListener('change', function(e) {
+        if(e.target.type === 'radio' || e.target.type === 'checkbox') {
+            localStorage.setItem('HNMDT_draft', JSON.stringify(getFormState()));
+        }
+    });
+
+    // 페이지 로드 시 
+    window.onload = function() {
+        updateDropdown();
+        let draft = localStorage.getItem('HNMDT_draft');
+        if(draft) {
+            try {
+                setFormState(JSON.parse(draft), true);
+                document.getElementById('draft-status').innerText = "✔️ 이전 작업내용 자동 복구됨";
+            } catch(e) {}
+        }
+    };
+
+    function resizeTextareas() {
+        document.querySelectorAll('.auto-expand').forEach(el => {
+            el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px';
+        });
+        const sumBox = document.getElementById('summary-box');
+        if(sumBox) { sumBox.style.height = 'auto'; sumBox.style.height = sumBox.scrollHeight + 5 + 'px'; }
+    }
+
+    const todos = {
+        post: ["병리결과 확인", "치과 진료 내역 (방사선 치료 대비)", "eGFR 및 기저질환 (CTx 신기능)", "NGS/PD-L1 등 유전자 검사"],
+        pre: ["조직검사 결과 확인", "PET, CT, MR 영상검사 확인", "치과 진료 내역 (방사선 치료 대비)", "eGFR 및 기저질환 (CTx 신기능)", "수술 날짜"],
+        mal: ["조직검사 결과 확인", "PET, CT, MR 영상검사 확인", "추가 검사(Chest CT 등) 필요성"],
+        adv: ["이전 병리결과 확인", "Advanced 현재 영상 평가", "이전 영상 자료와 비교 분석"]
+    };
+
+    function showTodo(type) {
+        const box = document.getElementById('todo-container');
+        box.style.display = 'block';
+        box.innerHTML = '<h3 style="margin-top:0; color:#856404; font-size:15px;">필수 확인 체크리스트 (요약에는 제외)</h3>';
+        todos[type].forEach(item => {
+            box.innerHTML += '<label style="font-weight:normal; margin-bottom:5px;"><input type="checkbox" class="todo-chk"> ' + item + '</label>';
+        });
+    }
+
+    function addRow(tableId) {
+        const tbody = document.getElementById(tableId).getElementsByTagName('tbody')[0];
+        const tr = document.createElement('tr');
+        if(tableId === 'surg-table') {
+            tr.innerHTML = `<td><textarea class="auto-expand surg-name" rows="1" placeholder="수술명 입력"></textarea></td><td><input type="text" class="date-input surg-date" placeholder="예: 20260520" maxlength="10" style="text-align:center;"></td><td><textarea class="auto-expand surg-path" rows="1" placeholder="소견 입력"></textarea></td><td style="vertical-align: middle;"><button class="btn btn-sm" onclick="deleteRow(this)">삭제</button></td>`;
+        } else {
+            tr.innerHTML = `<td><textarea class="auto-expand img-name" rows="1" placeholder="검사명 입력"></textarea></td><td><input type="text" class="date-input img-date" placeholder="예: 20260520" maxlength="10" style="text-align:center;"></td><td><textarea class="auto-expand img-desc" rows="1" placeholder="소견 입력"></textarea></td><td style="vertical-align: middle;"><button class="btn btn-sm" onclick="deleteRow(this)">삭제</button></td>`;
+        }
+        tbody.appendChild(tr);
+        localStorage.setItem('HNMDT_draft', JSON.stringify(getFormState()));
+    }
+
+    function deleteRow(btn) {
+        const row = btn.parentNode.parentNode;
+        row.parentNode.removeChild(row);
+        localStorage.setItem('HNMDT_draft', JSON.stringify(getFormState()));
+    }
+
+    function autoGeneratePI() {
+        const val = id => document.getElementById(id) ? document.getElementById(id).value.trim() : "";
+        let cVal = val('p-cc'), oVal = val('p-onset'), dVal = val('p-dx');
+        
+        if(!cVal && !dVal) { alert("주소증(C/C)이나 최종진단명을 먼저 입력해주세요!"); return; }
+
+        let piStr = "상기 환자 " + (oVal ? `${oVal} ` : "");
+        piStr += cVal ? `${cVal} 주소로 내원하여 조직검사 하였고, ` : "내원하여 조직검사 하였고, ";
+        piStr += dVal ? `${dVal} 확인되어 ` : "";
+        piStr += "추후 치료방침 결정 위해 다학제진료 의뢰됨.";
+
+        const piBox = document.getElementById('p-pi');
+        piBox.value = piStr; piBox.style.height = 'auto'; piBox.style.height = piBox.scrollHeight + 'px';
+        localStorage.setItem('HNMDT_draft', JSON.stringify(getFormState()));
+    }
+
+    function cleanSpaces(str) {
+        if (!str) return "";
+        let cleaned = str.replace(/[\n\r]+/g, ', ').replace(/[\s\u00A0]+/g, ' '); 
+        cleaned = cleaned.replace(/\s+,/g, ',').replace(/,([^\s])/g, ', $1').replace(/(,\s*)+/g, ', ').replace(/^[\s,]+|[\s,]+$/g, ''); 
+        return cleaned;
+    }
+
+    function generateSummary() {
+        let selectedType = "선택 안됨";
+        const radios = document.getElementsByName('ptype');
+        for(let r of radios) { if(r.checked) { selectedType = r.parentElement.innerText.trim(); break; } }
+
+        const val = id => document.getElementById(id) ? document.getElementById(id).value.trim() : "";
+        
+        const pmhChecks = document.querySelectorAll('input[name="pmh_chk"]:checked');
+        let pmhArr = Array.from(pmhChecks).map(chk => chk.parentNode.innerText.trim());
+        const manualPmh = val('p-pmh');
+        if(manualPmh) pmhArr.push(cleanSpaces(manualPmh)); 
+        let pmhStr = pmhArr.length > 0 ? `기저 및 사회력(+, ${pmhArr.join(', ')})` : `기저 및 사회력(-)`;
+
+        let out = "[환자 기본 정보]\n";
+        out += `등록번호: ${val('p-id')} | 이름: ${val('p-name')} | 성별/나이: ${val('p-sex')}/${val('p-age')}\n`;
+        out += `최종진단명: ${val('p-dx')}\n환자유형: ${selectedType}\n주소증(C/C): ${val('p-cc')} (Onset: ${val('p-onset')})\n${pmhStr}\n\n`; 
+        
+        const piText = val('p-pi');
+        if(piText) out += `[현병력 (Present Illness)]\n${piText}\n\n`;
+
+        const egfr = val('p-egfr'), dental = val('p-dental');
+        let evals = [];
+        if(egfr) evals.push(`eGFR: ${egfr}`); if(dental) evals.push(`치과: ${dental}`);
+        if(evals.length > 0) out += evals.join(" | ") + "\n\n";
+        
+        out += "[수술 및 병리 기록]\n";
+        let surgList = [];
+        document.querySelectorAll('#surg-table tbody tr').forEach(r => {
+            let sNameOneLine = cleanSpaces(r.querySelector('.surg-name').value); 
+            let sDate = r.querySelector('.surg-date').value.trim();
+            let sPath = r.querySelector('.surg-path').value.trim();
+            if(sNameOneLine || sPath || sDate) {
+                let num = sDate.replace(/[^0-9]/g, '');
+                surgList.push({ sName: sNameOneLine, sDate, sPath, sortKey: num.length >= 8 ? parseInt(num.substring(0,8), 10) : 99999999 });
+            }
+        });
+
+        surgList.sort((a, b) => a.sortKey - b.sortKey);
+        if(surgList.length > 0) {
+            surgList.forEach(item => {
+                let fDate = ""; let num = item.sDate.replace(/[^0-9]/g, '');
+                if(num.length >= 8) fDate = num.substring(2,4) + "'." + num.substring(4,6) + "." + num.substring(6,8);
+                else fDate = item.sDate; 
+                let dateSpace = fDate ? fDate + " " : "";
+                let sLine = `${dateSpace}${item.sName}`.trim();
+                
+                if(sLine) out += `${sLine}\n`;
+                if(item.sPath) out += ` Bx) ${item.sPath.replace(/\n/g, '\n     ')}\n`; 
+                out += `\n`;
+            });
+        } else out += "- 해당사항 없음\n\n";
+
+        out += "[영상 검사 소견]\n";
+        let imgList = [];
+        document.querySelectorAll('#img-table tbody tr').forEach(r => {
+            let iNameOneLine = cleanSpaces(r.querySelector('.img-name').value);
+            let iDate = r.querySelector('.img-date').value.trim();
+            let iDesc = r.querySelector('.img-desc').value.trim();
+            if(iDate || iDesc || iNameOneLine) {
+                let num = iDate.replace(/[^0-9]/g, '');
+                imgList.push({ iName: iNameOneLine, iDate, iDesc, sortKey: num.length >= 8 ? parseInt(num.substring(0,8), 10) : 99999999 });
+            }
+        });
+        
+        imgList.sort((a, b) => a.sortKey - b.sortKey);
+        if(imgList.length > 0) {
+            imgList.forEach(item => {
+                let fDate = ""; let num = item.iDate.replace(/[^0-9]/g, '');
+                if(num.length >= 8) fDate = num.substring(0,4) + "." + num.substring(4,6) + "." + num.substring(6,8);
+                else fDate = item.iDate;
+                let dateStr = fDate ? ` <${fDate}>` : "";
+                if (item.iName || fDate) out += `* ${item.iName}${dateStr}\n`;
+                if(item.iDesc) out += `  ${item.iDesc.replace(/\n/g, '\n  ')}\n`;
+                out += `\n`;
+            });
+        } else out += "- 해당사항 없음\n\n";
+        
+        const sumBox = document.getElementById('summary-box');
+        sumBox.value = out.trim();
+        sumBox.style.height = 'auto';
+        sumBox.style.height = sumBox.scrollHeight + 5 + 'px';
+        localStorage.setItem('HNMDT_draft', JSON.stringify(getFormState()));
+    }
+
+    function copyText() {
+        const box = document.getElementById('summary-box');
+        if(!box.value.trim()) { alert("먼저 '내용 정리하기' 버튼을 눌러주세요."); return; }
+        box.select(); box.setSelectionRange(0, 99999); 
+        navigator.clipboard.writeText(box.value).then(() => { alert("복사 완료! EMR 의무기록창에 Ctrl+V로 붙여넣으세요."); })
+        .catch(err => { document.execCommand('copy'); alert("복사 완료! EMR 의무기록창에 붙여넣으세요."); });
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>US Report - HYOL</title>
+
+<style>
+body {
+  font-family: "Segoe UI", Arial;
+  margin: 0;
+  background: #eef6fb;
+}
+
+.mascot {
+  width: 50%;        /* 입력창 대비 절반 */
+  margin-top: 10px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  opacity: 0.9;
+}
+
+/* 🔵 헤더 */
+.header {
+  background: linear-gradient(90deg, #0d4f7c, #2f80c1);
+  color: white;
+  padding: 14px 25px;
+  font-size: 20px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+}
+
+/* 로고 */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo img {
+  height: 42px;
+}
+
+/* 레이아웃 */
+.container {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+}
+
+/* 카드 */
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 15px;
+  width: 50%;
+  box-shadow: 0 6px 15px rgba(13, 79, 124, 0.1);
+}
+
+/* 제목 */
+.card h3 {
+  margin-top: 0;
+  color: #0d4f7c;
+}
+
+/* 입력 */
+textarea {
+  width: 100%;
+  height: 300px;
+  font-size: 14px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #cfd8e3;
+  outline: none;
+}
+
+textarea:focus {
+  border-color: #2f80c1;
+}
+
+/* 결과 */
+.output {
+  border: 1px solid #cfd8e3;
+  height: 300px;
+  padding: 10px;
+  border-radius: 10px;
+  white-space: pre-line;
+  background: #f4f9fd;
+  overflow-y: auto; /* 내용이 길어질 경우 스크롤 생성 */
+}
+
+/* 자동완성 */
+.suggestions {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 5px;
+  background: white;
+}
+
+.suggestions div {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.suggestions div:hover {
+  background: #e3f0fb;
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- 🔵 헤더 -->
+<div class="header">
+  <div class="logo">
+    <!-- 🔥 파일명 정확히 맞춰야 함 -->
+    <span>US Report - HYOL</span>
+  </div>
+</div>
+
+<!-- 🔵 메인 -->
+<div class="container">
+
+  <div class="card">
+    <h3>입력</h3>
+    <textarea id="input"></textarea>
+    <div id="suggestions" class="suggestions"></div>
+    <img src="hyleon2.png" class="mascot">
+  </div>
+
+  <div class="card">
+    <h3>결과</h3>
+    <div class="output" id="output"></div>
+    <img src="hyleon.png" class="mascot">
+  </div>
+
+</div>
+
+<script>
+const input = document.getElementById("input");
+const output = document.getElementById("output");
+const suggestionsBox = document.getElementById("suggestions");
+
+// 🔥 dictionary
+const dict = {
+
+  // words
+  indication: "indication",
+  diffuse: "diffuse",
+  increased: "increased",
+  decreased: "decreased",
+  vascularity: "vascularity",
+  heterogeneous: "heterogeneous",
+  homogeneous: "homogeneous",
+  hypoechoic: "hypoechoic",
+  hyperechoic: "hyperechoic",
+  echogenicity: "echogenicity",
+  isoechoic: "isoechoic",
+  multiple: "multiple",
+  thyroid: "thyroid",
+  isthmus: "isthmus",
+  thickness: "thickness",
+  level: "level",
+  lv: "level",
+  right: "right",
+  rt: "right",
+  left: "left",
+  lt: "left",
+  normal: "normal", 
+  abnormal: "abnormal", 
+  colloid: "colloid", 
+  solid: "solid", 
+  cystic: "cystic", 
+  spongiform: "spongiform", 
+  extrathyroidal: "extrathyroidal extension", 
+  upper: "upper", 
+  lower: "lower", 
+  nodule: "nodule", 
+  predominantly: "predominantly", 
+  partially: "partially",
+  bilateral: "bilateral", 
+  volume: "volume", 
+  pure: "pure", 
+  punctate: "punctate echogenic foci (+)", 
+  taller: "taller than wide",
+  nonparallel: "nonparallel orientation",
+  irregular: "irregular",
+  spiculate: "spiculate",
+  comet: "comet-tail artifact",
+  paraisthmic: "paraisthmic", 
+  rim: "rim calcification (+)", 
+  suspicious: "suspicious",
+  lymph: "lymph node",
+  negative: "negative",
+  size: "size: ",
+  thyroiditis: "thyroiditis",
+  preserved: "preserved",
+  markedly: "markedly",
+  new: "newly detected lesion",
+  interval: "no significant interval change",
+  features: "features",
+  noevidence: "no evidence of",
+  corresponding: "corresponding to patient’s palpable mass",
+  unremarkable: "otherwise, unremarkable findings",
+  thyroidnl: "Normal size and echogenicity of both thyroid glands without focal solid or cystic nodules.",
+
+// 수술 후 추적 관찰 (Post-op) 
+  postop: "No evidence of local tumor recurrence or abnormal lymph node in the operative bed.",
+  bed: "operative bed",
+  remnant: "remnant thyroid gland",
+
+  // 림프절 상세 (Lymph Node)
+  reactive: "suggestive of reactive lymphadenopathy",
+  suspiciousln: "suspicious metastatic lymph node",
+  hilum: "loss of echogenic fatty hilum",
+
+  // LN
+  ln0: `No enlarged lymph nodes`,
+
+  lnben: `Enlarged lymph nodes in the neck level {{cursor}}
+- size: 
+- ovoid shape with preserved fatty hilum
+- no definite abnormal vascularity`,
+
+  lnsus: `Enlarged lymph nodes in neck level {{cursor}}
+- size: 
+- round to oval shape
+- fatty hilum not clearly identified
+- heterogeneous echogenicity`,
+
+  lnmax: `- largest lymph node at {{cursor}}, size:`,
+
+  // Thyroid 
+  focalt: `possible focal thyroiditis, however thyroid nodule cannot be excluded`,
+
+  nsf: `Diffuse thyroid disease
+- heterogeneous echogenicity
+- within normal range of volume`,
+
+  graves: `diffuse hypoechogenicity
+- markedly increased vascularity
+- diffuse enlargement`,
+
+  // K-TIRADS
+  kt2: `benign (K-TIRADS 2)`,
+  kt3: `low suspicion (K-TIRADS 3)`,
+  kt4: `intermediate suspicion (K-TIRADS 4)`,
+  kt5: `high suspicion (K-TIRADS 5)`,
+
+  // SMG, Parotid 
+  nsfsalivary: `No abnormal findings in the parotid and submandibular glands`,
+
+// 주변 기관 
+  scm: "sternocleidomastoid muscle",
+  strap: "strap muscle",
+  smg: "submandibular gland",
+
+  // FNAC
+  fnac: `US-guided FNAC from the {{cursor}}
+- No immediate complication`
+};
+
+// 🔥 추천 생성
+input.addEventListener("input", () => {
+
+  // 🔥 커서 위치 기준 텍스트
+  const cursorPos = input.selectionStart;
+  const textBeforeCursor = input.value.slice(0, cursorPos);
+
+  // 🔥 커서 앞 마지막 단어
+  const match = textBeforeCursor.match(/(\S+)$/);
+  const word = match ? match[0] : "";
+
+  suggestionsBox.innerHTML = "";
+
+  if (!word) return;
+
+  const matches = Object.keys(dict)
+    .filter(k => k.startsWith(word))
+    .slice(0, 5);
+
+  matches.forEach(key => {
+    const div = document.createElement("div");
+    div.innerText = key;
+    suggestionsBox.appendChild(div);
+  });
+
+  updateOutput();
+});
+
+input.addEventListener("keydown", (e) => {
+
+  const pos = input.selectionStart;
+  let text = input.value;
+
+  const before = text.slice(0, pos);
+  const after = text.slice(pos);
+
+  // =========================
+  // 🔥 1. TAB → 자동완성
+  // =========================
+  if (e.key === "Tab") {
+    const first = suggestionsBox.firstChild;
+
+    if (first) {
+      e.preventDefault();
+      insertWord(first.innerText);
+      return;
+    }
+  }
+
+  // =========================
+  // 🔥 2. size 자동 변환 (3개 숫자)
+  // =========================
+  if (e.key === " " || e.key === "Enter") {
+
+    const updatedBefore = before.replace(
+      /size:\s*((\d+(\.\d+)?)(\s+\d+(\.\d+)?){2})(?!\s*cm)$/,
+      (match) => {
+        const nums = match.replace(/size:\s*/, "").trim().split(/\s+/);
+
+        if (nums.length !== 3) return match;
+
+        return "size: " + nums.join(" x ") + " cm";
+      }
+    );
+
+    text = updatedBefore + after;
+
+    input.value = text;
+
+    const diff = updatedBefore.length - before.length;
+    input.setSelectionRange(pos + diff, pos + diff);
+  }
+});
+
+function insertWord(key) {
+  let template = dict[key];
+
+  let cursorPos = template.indexOf("{{cursor}}");
+  template = template.replace("{{cursor}}", "");
+
+  let start = input.selectionStart;
+  let end = input.selectionEnd;
+
+  let text = input.value;
+
+  let match = text.slice(0, start).match(/(\S+)$/);
+  let wordStart = match ? start - match[0].length : start;
+
+  let before = text.slice(0, wordStart);
+  let after = text.slice(end);
+
+  input.value = before + template + after;
+
+  // 🔥 핵심: cursor 없으면 끝으로
+  let newPos;
+  if (cursorPos !== -1) {
+    newPos = before.length + cursorPos;
+  } else {
+    newPos = (before + template).length;
+  }
+
+  input.setSelectionRange(newPos, newPos);
+  input.focus();
+
+  suggestionsBox.innerHTML = "";
+  updateOutput();
+}
+
+// 🔥 오늘 날짜 구하기 (YYYY.MM.DD 형식)
+function getFormattedDate() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yyyy}.${mm}.${dd}`;
+}
+
+// 🔥 출력
+function updateOutput() {
+  let text = input.value;
+
+  // "숫자. " 다음 첫 글자 대문자
+  text = text.replace(/(\d+\.\s*)([a-z])/g, (match, p1, p2) => {
+    return p1 + p2.toUpperCase();
+  });
+
+  // 🔥 상단 고정 헤더 생성 및 결합
+  const header = `* Neck / Thyroid US [OL] <${getFormattedDate()}>\n`;
+  
+  // 텍스트가 있을 때는 헤더 아래에 줄바꿈 후 추가, 없으면 헤더만 출력
+  output.innerText = text.trim() ? header + "\n" + text : header;
+}
+
+// 🔥 페이지 로드 시 최초 1회 실행하여 헤더 출력
+updateOutput();
+
+</script>
+
+</body>
+</html>

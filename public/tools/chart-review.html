@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>검사 결과 요약 포맷터</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 20px;
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 500px;
+      font-family: "Courier New", Consolas, monospace;
+      font-size: 12px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    button {
+      margin: 10px 0;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .hint {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>검사 결과 요약 포맷터</h1>
+  <div class="hint">
+    혈액검사 / Thyroid US / Neck CT / ANA Titer 자동 인식 + 출력 즉시 클립보드 복사
+  </div>
+
+  <div class="container">
+    <div class="column">
+      <label>입력 (원본 검사 결과)</label>
+      <textarea id="inputArea" placeholder="여기에 검사 결과 붙여넣기"></textarea>
+      <button onclick="convert()">변환하기</button>
+    </div>
+    <div class="column">
+      <label>출력 (요약 결과)</label>
+      <textarea id="outputArea" readonly></textarea>
+    </div>
+  </div>
+
+  <script>
+    /* ================================
+       공통: 혈액검사 기록 파싱
+    =================================*/
+    function parseLabLines(lines) {
+      const pattern = /^(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}/;
+      const records = [];
+
+      for (const line of lines) {
+        const m = line.match(pattern);
+        if (!m) continue;
+
+        const date = m[1];
+        const rest = line.slice(m[0].length);
+        const colonIdx = rest.indexOf(":");
+        if (colonIdx === -1) continue;
+
+        const name = rest.slice(0, colonIdx).trim();
+        const result = rest.slice(colonIdx + 1);
+
+        records.push({ date, name, result });
+      }
+      return records;
+    }
+
+    function formatLine(date, name, result) {
+      return `${date.padEnd(18)}  ${name.padEnd(30)} :${result}`;
+    }
+
+    /* ================================
+       공통: 검사일 추출 (영상/ANA 보고서용)
+    =================================*/
+    function extractExamDate(lines) {
+      const re = /【검사일】\s*(\d{4}-\d{2}-\d{2})/;
+      for (const line of lines) {
+        const m = line.match(re);
+        if (m) return m[1];
+      }
+      const fallback = lines.join(" ");
+      const m = fallback.match(/(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : "0000-00-00";
+    }
+
+    /* ================================
+       모드 감지
+    =================================*/
+    function isThyroidUS(lines) {
+      return lines.some(l => l.includes("Thyroid Ultrasonography"));
+    }
+
+    function isHNCT(lines) {
+      return lines.some(l => l.includes("Neck CT"));
+    }
+
+    function isANA(lines) {
+      return lines.some(l => l.includes("ANA Titer") || l.includes("ANA titer 결과"));
+    }
+
+    /* ================================
+       Thyroid US 변환
+    =================================*/
+    function convertThyroidUS(lines) {
+      const examDate = extractExamDate(lines);
+      const out = [];
+      out.push(`* Thyroid US <${examDate.replace(/-/g, ".")}>`);
+
+      // "Compared with / to / copmared ..." 라인 찾기 (오타까지 허용)
+      let compareIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+        const t = lines[i].trim().toLowerCase();
+        if (
+          t.startsWith("compared with") ||
+          t.startsWith("compared to") ||
+          t.includes("ompared") // compared / copmared 모두 포함
+        ) {
+          compareIndex = i;
+          break;
+        }
+      }
+
+      if (compareIndex === -1) {
+        // fallback: Clinical info 제외, 번호 달린 줄만
+        for (const line of lines) {
+          const tl = line.trim();
+          if (!tl) continue;
+          if (tl.toLowerCase().startsWith("clinical information")) continue;
+          if (/^\d+\.\s/.test(tl)) out.push(tl);
+        }
+        return out.join("\n");
+      }
+
+      // 비교 줄
+      out.push(lines[compareIndex].replace(/\s+$/, ""));
+
+      // 이후 내용: 빈 줄, "US -", Clinical info 제거하고 그대로
+      for (let i = compareIndex + 1; i < lines.length; i++) {
+        const raw = lines[i];
+        const t = raw.trim();
+        if (!t) continue;
+        if (/^us\s*-\s*$/i.test(t)) continue;
+        if (t.toLowerCase().startsWith("clinical information")) continue;
+        out.push(raw);
+      }
+
+      return out.join("\n");
+    }
+
+    /* ================================
+       Neck CT 변환 (HN CT CE)
+    =================================*/
+    function convertHNCT(lines) {
+      const examDate = extractExamDate(lines);
+      const out = [];
+      out.push(`* HN CT CE <${examDate.replace(/-/g, ".")}>`);
+
+      let afterCompare = false;
+      for (const line of lines) {
+        const t = line.trim();
+        const tl = t.toLowerCase();
+        if (!t) continue;
+        if (tl.startsWith("clinical information")) continue;
+
+        if (!afterCompare && tl.startsWith("compared with")) {
+          out.push(t);
+          afterCompare = true;
+          continue;
+        }
+        if (afterCompare) out.push(t);
+      }
+      return out.join("\n");
+    }
+
+    /* ================================
+       ANA Titer 변환
+    =================================*/
+    function convertANA(lines) {
+      const examDate = extractExamDate(lines);
+      const dateTag = `<${examDate.replace(/-/g, ".")}>`;
+
+      let resultText = "";
+      for (const line of lines) {
+        if (line.includes("ANA titer 결과")) {
+          const idx = line.indexOf(":");
+          resultText = idx !== -1 ? line.slice(idx + 1).trim() : line.trim();
+          break;
+        }
+      }
+
+      return `* ANA ${dateTag} : ${resultText}`;
+    }
+
+    /* ================================
+       혈액검사 변환
+    =================================*/
+    function convertLab(lines) {
+      let header = null;
+      let separator = null;
+      for (const line of lines) {
+        if (line.includes("【검사명】")) header = line;
+        if (line.trim().startsWith("---")) separator = line;
+      }
+
+      const records = parseLabLines(lines);
+      if (records.length === 0) return "유효한 혈액검사 데이터가 없습니다.";
+
+      const date = records[0].date;
+      const dateTag = `<${date.replace(/-/g, ".")}>`;
+
+      const CBC = ["WBC", "Hemoglobin(Hb)", "Platelet"];
+
+      const CHEM_OTHER = [
+        "Phosphorus",
+        "Cholesterol",
+        "Glucose",
+        "Creatinine",
+        "eGFR Value",
+        "BUN(Urea nitrogen)",
+        "Uric acid",
+        "Bilirubin, total",
+        "ALP(Alkaline phosphatase)",
+        "AST(Aspartate aminotransferase)",
+        "ALT(Alanine aminotransferase)",
+        "Triglyceride",
+        "HDL-Cholesterol",
+        "LDL-Cholesterol",
+        "Magnesium",
+        "CRP(C-reactive protein)(응급)",
+        "CRP(C-reactive protein)",
+        "Zinc",
+        "RF",
+        "Lupus anticoagulant, screening test"
+      ];
+
+      const CALCIUM_NAME = "Calcium";
+      const IONIZED_CA_NAME = "Ionized calcium";
+
+      const map = {};
+      for (const r of records) {
+        map[r.name] = r;
+      }
+
+      const present = new Set(Object.keys(map));
+      const hasOtherChem = CHEM_OTHER.some(n => present.has(n));
+
+      // ---- 특수 케이스: 갑상선 패널만 있는 경우 ----
+      const thyroidPanelNames = new Set([
+        "TSH",
+        "Free T4",
+        "TSI(TSH receptor Ab)",
+        "Anti thyroglobulin Ab",
+        "T3",
+        "Thyroglobulin Ag",
+        "PTH intact",
+        CALCIUM_NAME,
+        IONIZED_CA_NAME
+      ]);
+
+      let thyroidOnly = true;
+      for (const n of present) {
+        if (!thyroidPanelNames.has(n)) {
+          thyroidOnly = false;
+          break;
+        }
+      }
+
+      if (thyroidOnly) {
+        const out = [];
+        out.push(dateTag);
+        if (header) out.push(header);
+        if (separator) out.push(separator);
+
+        const order = [
+          "TSH",
+          "Free T4",
+          IONIZED_CA_NAME,
+          CALCIUM_NAME,
+          "Anti thyroglobulin Ab",
+          "T3",
+          "Thyroglobulin Ag",
+          "PTH intact"
+        ];
+
+        for (const name of order) {
+          if (map[name]) {
+            const r = map[name];
+            out.push(formatLine(r.date, name, r.result));
+          }
+        }
+
+        return out.join("\n");
+      }
+      // ---- 여기까지 thyroid-only, 아래는 일반 케이스 ----
+
+      const out = [];
+      out.push(dateTag);
+      if (header) out.push(header);
+      if (separator) out.push(separator);
+
+      // CBC
+      let cbcPrinted = false;
+      for (const name of CBC) {
+        if (map[name]) {
+          const r = map[name];
+          out.push(formatLine(r.date, name, r.result));
+          cbcPrinted = true;
+        }
+      }
+      if (cbcPrinted) out.push("");
+
+      // Chemistry / 기타
+      if (hasOtherChem || map[CALCIUM_NAME] || map["Protein, total"] || map["Albumin"]) {
+        const orderChem = ["Protein, total", "Albumin", CALCIUM_NAME].concat(CHEM_OTHER);
+        const seen = new Set();
+        let chemPrinted = false;
+
+        for (const name of orderChem) {
+          if (seen.has(name)) continue;
+          if (map[name]) {
+            const r = map[name];
+            out.push(formatLine(r.date, name, r.result));
+            seen.add(name);
+            chemPrinted = true;
+          }
+        }
+        if (chemPrinted) out.push("");
+      }
+
+      // Thyroid-related (일반 케이스)
+      const thyroidList = ["TSH", "Free T4", "TSI(TSH receptor Ab)"];
+
+      // 만약 다른 화학이 하나도 없는데 Calcium만 있는 경우 → 갑상선 라인에 포함
+      if (!hasOtherChem && map[CALCIUM_NAME]) {
+        thyroidList.push(CALCIUM_NAME);
+      }
+
+      thyroidList.push(
+        "Anti thyroglobulin Ab",
+        "T3",
+        "Thyroglobulin Ag",
+        "PTH intact",
+        IONIZED_CA_NAME
+      );
+
+      for (const name of thyroidList) {
+        if (map[name]) {
+          const r = map[name];
+          out.push(formatLine(r.date, name, r.result));
+        }
+      }
+
+      return out.join("\n");
+    }
+
+    /* ================================
+       메인 엔트리 (출력 후 자동 클립보드 복사)
+    =================================*/
+    function convert() {
+      const lines = document.getElementById("inputArea").value.split(/\r?\n/);
+
+      let result;
+      if (isThyroidUS(lines)) {
+        result = convertThyroidUS(lines);
+      } else if (isHNCT(lines)) {
+        result = convertHNCT(lines);
+      } else if (isANA(lines)) {
+        result = convertANA(lines);
+      } else {
+        result = convertLab(lines);
+      }
+
+      const outArea = document.getElementById("outputArea");
+      outArea.value = result;
+
+      // 자동 클립보드 복사
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(result).catch(err => console.error("Clipboard error:", err));
+      }
+    }
+  </script>
+</body>
+</html>
