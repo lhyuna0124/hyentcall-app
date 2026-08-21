@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { DEFAULT_DIAGNOSES, DiagnosisRule, RiskLevel, riskColor, riskLabel } from "@/lib/triage";
 import { parseLabText, formatLabSummary, ParsedLab } from "@/lib/labRules";
 
-// --- 헬퍼 컴포넌트 (기존 유지) ---
+/* STREAMING_CHUNK:Initializing helper components... */
 function Toggle({ label, value, onChange }: { label: string; value: "" | "-" | "+" | "±"; onChange: (v: "" | "-" | "+" | "±") => void; }) {
 return (
 
@@ -40,8 +40,9 @@ className={chip border ${values.includes(opt) ? "bg-brand-600 text-white border-
 );
 }
 
+/* STREAMING_CHUNK:Building StatsTab component... */
 // =====================================
-// 1. 통계 및 기록 조회 컴포넌트 (신규)
+// 1. 통계 및 기록 조회 컴포넌트
 // =====================================
 function StatsTab() {
 const [records, setRecords] = useState<any[]>([]);
@@ -55,7 +56,8 @@ fetch("/api/notifications")
 }, []);
 
 async function handleDelete(id: string) {
-if (confirm("잘못 입력된 이 기록을 정말 삭제하시겠습니까?")) {
+// 안전한 window.confirm 사용 (SSR 에러 방지)
+if (typeof window !== "undefined" && window.confirm("잘못 입력된 이 기록을 정말 삭제하시겠습니까?")) {
 await fetch(/api/notifications?id=${id}, { method: "DELETE" }).catch(() => {});
 setRecords((prev) => prev.filter((r) => r.id !== id));
 }
@@ -68,15 +70,15 @@ return (
 총 {records.length}건
 
 
-  {records.length === 0 && <div className="text-center p-8 text-slate-400 text-sm">저장된 기록이 없습니다.</div>}
+  {(!records || records.length === 0) && <div className="text-center p-8 text-slate-400 text-sm">저장된 기록이 없습니다.</div>}
   
-  {records.map((record) => {
+  {Array.isArray(records) && records.map((record) => {
     const dateObj = new Date(record.createdAt || Date.now());
     const isDawn = dateObj.getHours() >= 0 && dateObj.getHours() <= 6; 
     const timeStr = dateObj.toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
     return (
-      <div key={record.id} className="card p-0 overflow-hidden shadow-sm border border-slate-200 rounded-lg mb-3">
+      <div key={record.id || Math.random()} className="card p-0 overflow-hidden shadow-sm">
         <div 
           className={`p-4 flex justify-between items-center cursor-pointer transition-colors ${isDawn ? 'bg-indigo-50/40 hover:bg-indigo-50' : 'bg-white hover:bg-slate-50'}`}
           onClick={() => setExpandedId(expandedId === record.id ? null : record.id)}
@@ -84,19 +86,19 @@ return (
           <div>
             <div className="font-semibold text-slate-800 flex items-center gap-2">
               {record.patientName || "무명"} ({record.patientSex}/{record.patientAge})
-              <span className="text-xs text-brand-600 font-bold bg-brand-50 px-2 py-0.5 rounded">{record.diagnosisLabel}</span>
+              <span className="text-xs text-brand-600 font-bold bg-brand-50 px-2 py-0.5 rounded border border-brand-100">{record.diagnosisLabel || record.diagnosisId}</span>
             </div>
             <div className="text-xs text-slate-500 mt-1.5 flex items-center gap-2 font-medium">
               <span>{timeStr}</span>
-              {isDawn && <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200">🌙 새벽 노티</span>}
+              {isDawn && <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 font-bold">🌙 새벽 노티</span>}
               <span>| {record.residentName} 작성</span>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className={`chip border text-xs font-bold px-2 py-1 rounded ${record.disposition?.includes('입원') ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-              {record.disposition || "결정 미상"}
+            <span className={`chip border text-xs font-bold ${record.disposition?.includes('입원') || record.admitted ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+              {record.disposition || (record.admitted ? "입원" : "미입원")}
             </span>
-            <span className="text-xs text-slate-400">{expandedId === record.id ? "접기 ▲" : "상세보기 ▼"}</span>
+            <span className="text-xs text-slate-400">{expandedId === record.id ? "접기 ▲" : "펼치기 ▼"}</span>
           </div>
         </div>
         
@@ -105,11 +107,11 @@ return (
             <div className="flex justify-between items-center">
               <span className="text-xs font-semibold text-slate-500">당시 노티장 전문 (보고: {record.professorName} 교수님)</span>
             </div>
-            <textarea className="input w-full min-h-[160px] font-mono text-xs leading-relaxed bg-white p-3 border rounded" readOnly value={record.finalText} />
-            <div className="flex justify-end gap-2 mt-2">
-              <button className="px-3 py-1.5 text-xs border rounded bg-white text-slate-600 hover:bg-slate-50" onClick={() => navigator.clipboard.writeText(record.finalText)}>전체 복사하기</button>
-              <button className="px-3 py-1.5 text-xs border rounded bg-red-50 text-red-600 border-red-200 hover:bg-red-100 flex items-center gap-1" onClick={() => handleDelete(record.id)}>
-                🗑️ 잘못된 기록 삭제
+            <textarea className="input min-h-[160px] font-mono text-xs leading-relaxed bg-white border-slate-200" readOnly value={record.finalText || ""} />
+            <div className="flex justify-end gap-2">
+              <button className="btn-outline !py-1.5 !px-3 text-xs font-bold bg-white" onClick={() => navigator.clipboard.writeText(record.finalText || "")}>복사하기</button>
+              <button className="btn !bg-red-50 !text-red-600 !border-red-200 hover:!bg-red-100 !py-1.5 !px-3 text-xs flex items-center gap-1 font-bold" onClick={() => handleDelete(record.id)}>
+                🗑️ 기록 삭제
               </button>
             </div>
           </div>
@@ -123,6 +125,7 @@ return (
 );
 }
 
+/* STREAMING_CHUNK:Configuring NotifyPage main states... */
 // =====================================
 // 2. 메인 작성 페이지 컴포넌트
 // =====================================
@@ -130,7 +133,6 @@ export default function NotifyPage() {
 const { user, loading } = useAuth();
 const router = useRouter();
 
-// 상태 관리: 탭 및 UI 접힘 여부
 const [activeTab, setActiveTab] = useState<"write" | "stats">("write");
 const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -140,30 +142,28 @@ if (!loading && !user) router.replace("/");
 
 const [diagnoses, setDiagnoses] = useState<DiagnosisRule[]>(DEFAULT_DIAGNOSES);
 useEffect(() => {
-fetch("/api/algorithm").then((r) => r.json()).then((d) => setDiagnoses(d)).catch(() => {});
+fetch("/api/algorithm").then(r => r.json()).then(d => setDiagnoses(d)).catch(()=>{});
 }, []);
 
-// 환자 기본 정보
 const [patientName, setPatientName] = useState("");
 const [age, setAge] = useState("");
 const [sex, setSex] = useState<"M" | "F">("M");
 const [diagnosisId, setDiagnosisId] = useState(DEFAULT_DIAGNOSES[0].id);
 
-// 기저질환
+const [onsetValue, setOnsetValue] = useState("");
+const [onsetUnit, setOnsetUnit] = useState("일");
+const [cc, setCc] = useState("");
+const [hx, setHx] = useState("");
+
 const [underlying, setUnderlying] = useState(false);
 const [underlyingItems, setUnderlyingItems] = useState<string[]>([]);
 const [underlyingEtc, setUnderlyingEtc] = useState("");
 const [antiplatelet, setAntiplatelet] = useState<string[]>([]);
 
-// 병력 및 증상 (CC 추가)
-const [onsetValue, setOnsetValue] = useState("");
-const [onsetUnit, setOnsetUnit] = useState("일");
-const [cc, setCc] = useState("");
-const [hx, setHx] = useState("");
 const [symptoms, setSymptoms] = useState<string[]>([]);
 const [bt, setBt] = useState("");
 
-// 신체진찰
+/* STREAMING_CHUNK:Setting up Physical Exam states... */
 const [tonsilFindings, setTonsilFindings] = useState<string[]>([]);
 const [ptBulging, setPtBulging] = useState<"" | "-" | "+" | "±">("");
 const [uvulaDeviation, setUvulaDeviation] = useState<"" | "Lt" | "Rt">("");
@@ -174,13 +174,11 @@ const [larynxSwelling, setLarynxSwelling] = useState<"" | "-" | "+" | "±">("");
 const [lateralWallSwelling, setLateralWallSwelling] = useState<"" | "-" | "+" | "±">("");
 const [tvcVisible, setTvcVisible] = useState<"visible" | "not_visible" | "">("");
 
-// Lab / CT
 const [labText, setLabText] = useState("");
 const parsedLabs: ParsedLab[] = useMemo(() => parseLabText(labText), [labText]);
 const [ctReadType, setCtReadType] = useState<"구두판독" | "정식판독">("구두판독");
 const [ctFinding, setCtFinding] = useState("");
 
-// 치료 계획, 교수님, 최종 결정
 const PROFESSORS = ["박민규", "이현아", "곽진혜"];
 const DISPOSITIONS = ["입원 결정", "OPD f/u (귀가)", "타과 의뢰", "타병원 전원"];
 const [professorName, setProfessorName] = useState(PROFESSORS[0]);
@@ -193,18 +191,14 @@ const [dexa, setDexa] = useState<"" | "-" | "+">("");
 const [dexaFreq, setDexaFreq] = useState("BID");
 const [careLevel, setCareLevel] = useState<string[]>([]);
 
-const selectedDiagnosis = diagnoses.find((d) => d.id === diagnosisId) ?? diagnoses[0];
+const selectedDiagnosis = diagnoses.find(d => d.id === diagnosisId) ?? diagnoses[0];
+const [finalText, setFinalText] = useState("");
+const [saved, setSaved] = useState(false);
 
-// 위험도 산정 (triage.ts 기준)
-const risk: RiskLevel = useMemo(() => {
-let r = selectedDiagnosis?.baseRisk ?? "LOW";
-if (tvcVisible === "not_visible") r = "HIGH";
-if (epiSwelling === "+" && symptoms.includes("Dyspnea")) r = "HIGH";
-return r;
-}, [selectedDiagnosis, tvcVisible, epiSwelling, symptoms]);
-
-// 임시 저장 기능 (Local Storage)
+/* STREAMING_CHUNK:Implementing Draft saving logic... */
+// 💡 [임시저장 기능] SSR 에러 방지를 위해 useEffect 내부에 배치
 useEffect(() => {
+if (typeof window !== "undefined") {
 const draft = localStorage.getItem("ent_draft");
 if (draft) {
 try {
@@ -219,69 +213,81 @@ if (d.cc) setCc(d.cc);
 if (d.hx) setHx(d.hx);
 } catch (e) {}
 }
+}
 }, []);
 
 function handleTempSave() {
 const data = { patientName, age, sex, diagnosisId, onsetValue, onsetUnit, cc, hx };
+if (typeof window !== "undefined") {
 localStorage.setItem("ent_draft", JSON.stringify(data));
-alert("현재 작성 중인 정보가 임시저장 되었습니다.");
+window.alert("기본 정보가 브라우저에 임시저장 되었습니다.");
+}
 }
 
-// 💡 [핵심] 클로드의 위험도(Risk) + 전공의 역량(Level) 종합 가이드 산출
-const recommendation = useMemo(() => {
-const level = user?.level || "중"; // user 객체에 level(상/중/하)이 있다고 가정
+/* STREAMING_CHUNK:Calculating Risk and Guidelines... */
+const risk: RiskLevel = useMemo(() => {
+let r = selectedDiagnosis?.baseRisk ?? "LOW";
+if (tvcVisible === "not_visible") r = "HIGH";
+if (epiSwelling === "+" && symptoms.includes("Dyspnea")) r = "HIGH";
+return r;
+}, [selectedDiagnosis, tvcVisible, epiSwelling, symptoms]);
 
-if (risk === "HIGH") {
-  return {
-    method: "🚨 초응급: 무조건 즉시 전화 보고",
-    detail: "Airway compromise 위험이 높은 초응급(HIGH Risk) 상태입니다. 시간대 불문하고 빽콜 필수이며 미응답 시 5분 간격 재발신 하세요.",
-    color: "bg-red-50 border-red-500 text-red-800",
+// 💡 역량 + 중증도 결합 맞춤형 노티 가이드 산출
+const recommendation = useMemo(() => {
+// 안전한 참조 우회 (TypeError 방지)
+const dxId = selectedDiagnosis?.id || "";
+const isHighRiskDx = ["airway_trauma", "postop_bleeding", "deep_neck", "epiglottitis"].includes(dxId);
+const hasAirwayRisk = tvcVisible === "not_visible" || (epiSwelling === "+" && symptoms.includes("Dyspnea"));
+
+if (isHighRiskDx || hasAirwayRisk) {
+  return { 
+    method: "🚨 초응급: 무조건 즉시 전화 보고", 
+    detail: "Airway compromise 가능성이 높은 고위험 상태입니다. 카톡 발송과 동시에 당직의/치프 교수님께 즉시 전화(빽콜) 하십시오. 안 받으시면 5분 간격으로 하셔야 합니다.", 
+    color: "bg-red-50 border-red-500 text-red-800" 
   };
 }
+
+// user 타입에 level이 없을 경우를 대비해 우회처리 (as any)
+const level = (user as any)?.level || "중";
 
 if (level === "하") {
-  return {
-    method: "📞 카톡 전송 후 유선 컨펌 필수",
-    detail: `[역량: 하] 상태가 안정적이더라도 카톡 노티장 전송 후 반드시 전화로 입원/처치 컨펌을 받으세요.`,
-    color: "bg-orange-50 border-orange-500 text-orange-800",
+  return { 
+    method: "📞 카톡 전송 후 유선 컨펌 필수", 
+    detail: `[전공의 역량평가: 하] 환자 상태가 안정적이더라도, 카카오톡 노티장 전송 후 반드시 전화로 입원/처치 컨펌을 받으세요.`, 
+    color: "bg-orange-50 border-orange-500 text-orange-800" 
   };
 }
-
 if (level === "중") {
   if (risk === "MEDIUM") {
-    return {
-      method: "💬 주간 전화 / 새벽 카톡 후 대기",
-      detail: `[역량: 중 / MEDIUM Risk] 주간엔 전화 노티가 기본입니다. 새벽엔 카톡 노티 후 10~15분 대기하고 회신이 없으면 전화로 전환하세요.`,
-      color: "bg-yellow-50 border-yellow-500 text-yellow-800",
+    return { 
+      method: "💬 주간 유선보고 / 야간 카톡 대기", 
+      detail: `[전공의 역량평가: 중] 주간엔 전화가 기본입니다. 새벽엔 카톡 노티 후 10~15분 대기하고 회신 없으면 유선콜 하세요.`, 
+      color: "bg-yellow-50 border-yellow-500 text-yellow-800" 
     };
   }
-  return {
-    method: "💬 카톡 노티 후 자율 진행 (악화 시 빽콜)",
-    detail: `[역량: 중 / LOW Risk] 노티 후 자체 처치 진행하세요. 애매하거나 상태 악화 시에만 빽콜하세요.`,
-    color: "bg-green-50 border-green-500 text-green-800",
+  return { 
+    method: "💬 카톡 노티 후 자율 진행 (필요시 유선콜)", 
+    detail: `[전공의 역량평가: 중 / LOW Risk] 노티장 전송 후 자체 결정하신 처치(입원/귀가 등)를 진행하세요. 애매하거나 악화 시에만 빽콜하세요.`, 
+    color: "bg-green-50 border-green-500 text-green-800" 
   };
 }
-
-// level === "상"
-return {
-  method: "✅ 자율 진행 완료 (아침 정규 보고)",
-  detail: `[역량: 상] 단독 결정 가능한 레벨입니다. 카톡 노티만 남기고 자체 진행 후 익일 아침 회진 시 사후 보고하세요.`,
-  color: "bg-blue-50 border-blue-500 text-blue-800",
+return { 
+  method: "✅ 자율 진행 완료 (아침 정규 보고)", 
+  detail: `[전공의 역량평가: 상] 단독 결정 가능한 레벨입니다. 카카오톡 노티장만 남기고 처치 후 익일 아침 회진 시 사후 보고하세요.`, 
+  color: "bg-blue-50 border-blue-500 text-blue-800" 
 };
 
 
-}, [risk, user?.level]);
+}, [selectedDiagnosis, tvcVisible, epiSwelling, symptoms, user, risk]);
 
-const [finalText, setFinalText] = useState("");
-const [saved, setSaved] = useState(false);
-
-// 텍스트 빌드
+/* STREAMING_CHUNK:Assembling the Text Output... */
 function buildText() {
 const lines: string[] = [];
-lines.push("[응급실 환자 노티드립니다.]\n");
-lines.push(${patientName || "ㅇㅇㅇ"} ${sex}/${age || "-"} ${selectedDiagnosis?.label ?? ""});
+const safeLabel = selectedDiagnosis?.label || "";
 
-// 기저질환
+lines.push("[응급실 환자 노티드립니다.]\n");
+lines.push(`${patientName || "ㅇㅇㅇ"} ${sex}/${age || "-"} ${safeLabel}`);
+
 if (underlying) {
   const items = [...underlyingItems];
   if (underlyingEtc) items.push(underlyingEtc);
@@ -292,14 +298,12 @@ if (underlying) {
 }
 lines.push("");
 
-// 💡 지정된 HPI 와꾸 자동완성
+// 💡 HPI 표준 와꾸 자동화
 if (onsetValue || cc) {
   lines.push(`내원 ${onsetValue || "ㅇ"}${onsetUnit} 전부터 지속된 ${cc || "증상"}을(를) 주소로 본원 응급실 내원하여 본과 진료 의뢰된 분입니다.`);
 }
 if (hx) lines.push(hx);
-if (symptoms.length || bt) {
-  lines.push(`추가증상: ${symptoms.join(", ")}${bt ? ` (BT ${bt}도)` : ""}`);
-}
+if (symptoms.length || bt) lines.push(`추가증상: ${symptoms.join(", ")}${bt ? ` (BT ${bt}도)` : ""}`);
 
 lines.push("\n[신체진찰 상]");
 if (tonsilFindings.length) lines.push(`- Tonsil: ${tonsilFindings.join(", ")}`);
@@ -309,11 +313,12 @@ if (ptBulging) {
   lines.push(s);
 }
 
-// 💡 단순 진단명 Airway 자동 방어 문구
-const hasAirwayFindings = (epiSwelling && epiSwelling !== "-") || (epiCyst && epiCyst !== "-") || (epiEdema && epiEdema !== "-") || (larynxSwelling && larynxSwelling !== "-") || (lateralWallSwelling && lateralWallSwelling !== "-") || tvcVisible === "not_visible";
-const isSimpleDx = ["tonsillitis", "ptabscess", "parotitis", "parotid_abscess"].includes(selectedDiagnosis?.id || "");
+// 💡 스마트 Airway 문구 방어 로직
+const airwayIssues = (epiSwelling && epiSwelling !== "-") || (epiCyst && epiCyst !== "-") || (epiEdema && epiEdema !== "-") || (larynxSwelling && larynxSwelling !== "-") || (lateralWallSwelling && lateralWallSwelling !== "-") || tvcVisible === "not_visible";
+const dxId = selectedDiagnosis?.id || "";
+const isSimpleDx = ["tonsillitis", "ptabscess", "parotitis", "parotid_abscess"].includes(dxId);
 
-if (isSimpleDx && !hasAirwayFindings) {
+if (isSimpleDx && !airwayIssues) {
   lines.push(`- Fiberscope 상 airway 특이소견 없습니다.`);
 } else {
   const epiParts: string[] = [];
@@ -325,14 +330,14 @@ if (isSimpleDx && !hasAirwayFindings) {
   if (lateralWallSwelling && lateralWallSwelling !== "-") lines.push(`- Lateral pharyngeal wall swelling ${lateralWallSwelling}`);
 }
 
-if (tvcVisible === "not_visible") lines.push(`- 🚨 True Vocal Cord 확인 안됨 (Airway Risk)`);
+if (tvcVisible === "not_visible") lines.push(`- 🚨 True Vocal Cord 확인 안됨 (Airway risk)`);
 
 lines.push("\n[Lab 및 영상 상]");
 const labSummary = formatLabSummary(parsedLabs);
 lines.push(`Lab 상 ${labSummary || "특이소견 없으며,"}`);
 lines.push(`Neck CT (CE) ${ctReadType} 상 ${ctFinding || "특이소견 없습니다."}`);
 
-// 최종 Disposition 반영
+// 💡 최종 Disposition 맺음말
 lines.push("\n[처치 및 계획]");
 if (disposition === "입원 결정") {
   if (treatReasons.length) lines.push(`${treatReasons.join(", ")} 위해 입원 권유드렸으며 환자분 동의하시어${extraNote ? ` (${extraNote})` : ""}`);
@@ -343,45 +348,59 @@ if (disposition === "입원 결정") {
   if (antiPlan === "triple") planParts.push("IV triple anti");
   if (dexa === "+") planParts.push(`Dexa 사용, 1앰플 ${dexaFreq}`);
   if (careLevel.length) planParts.push(`${careLevel.join(", ")} 하기로 하였습니다.`);
-  lines.push(`입원하여 ${planParts.join(", ")}`);
+  lines.push(`입원하여 ${planParts.join(", ")}.`);
 } else if (disposition === "OPD f/u (귀가)") {
   lines.push(`${professorName} 교수님 노티드렸으며, 증상 조절 후 귀가하여 외래 f/u 하기로 하였습니다.`);
 } else if (disposition === "타과 의뢰") {
-  lines.push(`${professorName} 교수님 노티드렸으며, 이비인후과적 처치보다 타과 소견 중요하여 해당 과로 의뢰하였습니다.`);
+  lines.push(`${professorName} 교수님 노티드렸으며, 이비인후과적 처치보다 타과 소견 중요하여 의뢰하였습니다.`);
 } else if (disposition === "타병원 전원") {
   lines.push(`${professorName} 교수님 노티드렸으며, 보호자 면담 후 타병원으로 전원 조치하였습니다.`);
 }
 
 setFinalText(lines.join("\n"));
-setIsCollapsed(true); // 💡 생성 시 폼 접기 트리거
+setIsCollapsed(true); // 입력 폼 접기 트리거 발동
 
 
 }
 
+/* STREAMING_CHUNK:Final Save action... */
 async function handleFinalSave() {
 if (!user) return;
 const payload = {
-residentId: user.id, residentName: user.name, residentLevel: user.level,
-patientName, patientAge: age, patientSex: sex, diagnosisId, diagnosisLabel: selectedDiagnosis?.label ?? "",
-risk, disposition, professorName, finalText
+residentId: (user as any).id,
+residentName: (user as any).name,
+residentLevel: (user as any).level || "중",
+patientName,
+patientAge: age,
+patientSex: sex,
+diagnosisId,
+diagnosisLabel: selectedDiagnosis?.label || "",
+risk,
+disposition,
+admitted: disposition === "입원 결정", // 서버 호환성을 위한 추가
+professorName,
+finalText
 };
 try {
 await fetch("/api/notifications", {
 method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
 });
 setSaved(true);
-localStorage.removeItem("ent_draft"); // 성공 시 임시저장 비움
+if (typeof window !== "undefined") localStorage.removeItem("ent_draft");
 setTimeout(() => {
 setSaved(false); setActiveTab("stats"); setIsCollapsed(false); setFinalText("");
 }, 1500);
-} catch (e) { alert("서버 저장 중 오류가 발생했습니다."); }
+} catch (e) {
+if (typeof window !== "undefined") window.alert("서버 저장 중 오류가 발생했습니다.");
+}
 }
 
 if (loading || !user) return null;
 
+/* STREAMING_CHUNK:Rendering the UI... /
 return (
 
-{/* 탭 네비게이션 */}
+{/ 탭 네비게이션 */}
 
 <button onClick={() => setActiveTab("write")} className={py-3 px-4 font-semibold text-sm ${activeTab === "write" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500 hover:text-slate-700"}}>
 노티 작성
@@ -400,21 +419,15 @@ return (
         <span className={`chip ${riskColor(risk)}`}>위험도: {riskLabel(risk)}</span>
       </div>
 
-      {selectedDiagnosis?.immediateAdmit && !isCollapsed && (
-        <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2">
-          이 진단은 즉시 입원 대상으로 분류됩니다 (airway trauma / postop bleeding / deep neck 등).
-        </div>
-      )}
-
-      {/* 💡 폼 축약(접힘) 시 안내 메시지 */}
+      {/* 💡 폼 축약(접힘) 시 상단 안내 메시지 */}
       {isCollapsed && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between animate-in fade-in">
-          <span className="text-sm font-medium text-slate-600">입력창이 간소화되었습니다. 상세 내용을 수정하려면 다시 열어주세요.</span>
+          <span className="text-sm font-medium text-slate-600">입력창이 간소화되었습니다. 내용을 수정하려면 입력 폼을 다시 여세요.</span>
           <button className="text-brand-600 text-sm font-semibold underline" onClick={() => setIsCollapsed(false)}>입력창 다시 열기</button>
         </div>
       )}
 
-      {/* 기본 입력 폼 (isCollapsed 시 화면에서 숨김) */}
+      {/* 💡 기본 입력 폼 (isCollapsed 가 true 면 화면에서 통째로 사라집니다) */}
       <div className={isCollapsed ? "hidden" : "space-y-6 animate-in slide-in-from-top-4 duration-300"}>
         
         <section className="card space-y-3">
@@ -449,7 +462,6 @@ return (
 
         <section className="card space-y-3">
           <h2 className="font-medium text-slate-700">2. 병력 및 증상 (HPI)</h2>
-          {/* 💡 지정된 CC 와꾸 입력부 */}
           <div className="flex gap-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
             <span className="text-sm font-semibold text-slate-600">내원</span>
             <input className="input w-16 !py-1 text-center font-bold" value={onsetValue} onChange={(e) => setOnsetValue(e.target.value)} placeholder="3" />
@@ -460,8 +472,7 @@ return (
             <input className="input flex-1 !py-1" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="주증상(CC) 입력 (예: 인후통)" />
             <span className="text-sm font-semibold text-slate-600 whitespace-nowrap">을(를) 주소로 내원</span>
           </div>
-          <textarea className="input min-h-[70px] mt-2" placeholder="추가 증상 경과 및 hx (선택입력)" value={hx} onChange={(e) => setHx(e.target.value)} />
-          
+          <textarea className="input min-h-[70px] mt-2" placeholder="추가 증상 경과 및 History (선택입력)" value={hx} onChange={(e) => setHx(e.target.value)} />
           <div>
             <label className="label">동반 증상</label>
             <MultiCheck options={["Fever", "Chill", "Odynophagia", "Dyspnea", "Dysphagia", "Sore throat"]} values={symptoms} onChange={setSymptoms} />
@@ -495,7 +506,7 @@ return (
           <h2 className="font-medium text-slate-700 mb-2">4. 신체진찰 (Airway)</h2>
           <div className="pb-2">
             <label className="label">Tonsil 소견 (복수 선택)</label>
-            <MultiCheck options={["Enlargement", "Injection", "Whitish patch", "With ulceration", "Mass", "s/p tonsillectomy"]} values={tonsilFindings} onChange={setTonsilFindings} />
+            <MultiCheck options={["Enlargement", "Injection", "Whitish patch", "With ulceration", "s/p tonsillectomy"]} values={tonsilFindings} onChange={setTonsilFindings} />
           </div>
           <Toggle label="Peritonsillar bulging" value={ptBulging} onChange={setPtBulging} />
           {ptBulging && ptBulging !== "-" && (
@@ -594,8 +605,8 @@ return (
 
         {/* 💡 폼 접기 트리거 버튼 */}
         <div className="pt-2">
-          <button className="btn w-full py-4 text-base shadow-md font-bold bg-slate-800 text-white hover:bg-slate-900" onClick={() => buildText()} type="button">
-            최종 format 생성 및 가이드라인 확인 ⬇️
+          <button className="btn w-full py-4 text-base shadow-md font-bold text-white bg-slate-800 hover:bg-slate-900" onClick={() => buildText()} type="button">
+            최종 format 생성 및 AI 가이드 확인 ⬇️
           </button>
         </div>
       </div>
@@ -606,7 +617,7 @@ return (
       {finalText && isCollapsed && (
         <section className="space-y-5 animate-in slide-in-from-bottom-6 duration-300 mt-4">
           
-          {/* 💡 AI 가이드라인 박스 (역량 + 중증도 결합) */}
+          {/* 💡 AI 가이드라인 박스 (역량 + 중증도 결합 알고리즘) */}
           <div className={`p-5 rounded-xl border-l-4 shadow-sm ${recommendation.color}`}>
             <h3 className="font-bold flex items-center gap-2 text-base">{recommendation.method}</h3>
             <p className="font-medium text-sm mt-1.5 opacity-90 leading-relaxed">{recommendation.detail}</p>
