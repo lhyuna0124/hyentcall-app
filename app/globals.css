@@ -7,56 +7,71 @@ body {
   color: #0f172a;
 }
 
-.card {
-  @apply bg-white rounded-xl shadow-sm border border-slate-200 p-5;
+@media print {
+  header,
+  aside {
+    display: none !important;
+  }
+  body {
+    background-color: #fff;
+  }
 }
 
-.label {
-  @apply text-sm font-medium text-slate-600 mb-1 block;
-}
+/* 중요: 커스텀 컴포넌트 클래스는 반드시 @layer components 안에 둬야
+   className="input w-40" 처럼 유틸리티 클래스를 함께 줬을 때 폭 지정이
+   실제로 적용됩니다 (@layer 밖에 두면 항상 .input의 w-full이 이겨버립니다). */
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-5;
+  }
 
-.input {
-  @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500;
-}
+  .label {
+    @apply text-sm font-medium text-slate-600 mb-1 block;
+  }
 
-.btn {
-  @apply inline-flex items-center justify-center rounded-lg bg-brand-600 text-white text-sm font-medium px-4 py-2 hover:bg-brand-700 transition disabled:opacity-40;
-}
+  .input {
+    @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500;
+  }
 
-.btn-outline {
-  @apply inline-flex items-center justify-center rounded-lg border border-slate-300 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-50 transition;
-}
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg bg-brand-600 text-white text-sm font-medium px-4 py-2 hover:bg-brand-700 transition disabled:opacity-40;
+  }
 
-.chip {
-  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
-}
+  .btn-outline {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-300 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-50 transition;
+  }
 
-.acc {
-  @apply bg-white rounded-xl shadow-sm border border-slate-200;
-}
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
 
-.acc > summary {
-  @apply cursor-pointer select-none px-5 py-3 font-medium text-slate-700 list-none flex items-center justify-between;
-}
+  .acc {
+    @apply bg-white rounded-xl shadow-sm border border-slate-200;
+  }
 
-.acc > summary::-webkit-details-marker {
-  display: none;
-}
+  .acc > summary {
+    @apply cursor-pointer select-none px-5 py-3 font-medium text-slate-700 list-none flex items-center justify-between;
+  }
 
-.acc > summary::after {
-  content: "▾";
-  color: #94a3b8;
-  transition: transform 0.15s ease;
-}
+  .acc > summary::-webkit-details-marker {
+    display: none;
+  }
 
-.acc[open] > summary::after {
-  transform: rotate(180deg);
-}
+  .acc > summary::after {
+    content: "▾";
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
 
-.acc .acc-body {
-  @apply px-5 pb-4 space-y-2;
-}
+  .acc[open] > summary::after {
+    transform: rotate(180deg);
+  }
 
-.field-row {
-  @apply flex items-center justify-between py-1 border-b border-slate-100 last:border-0;
+  .acc .acc-body {
+    @apply px-5 pb-4 space-y-2;
+  }
+
+  .field-row {
+    @apply flex items-center justify-between py-1 border-b border-slate-100 last:border-0;
+  }
 }

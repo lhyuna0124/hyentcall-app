@@ -265,6 +265,7 @@ export default function MdtPage() {
     } else out += "- 해당사항 없음\n\n";
 
     setSummary(out.trim());
+    return out.trim();
   }
 
   function copyText() {
@@ -351,11 +352,20 @@ export default function MdtPage() {
     if (loadedId === id) resetForm();
   }
 
+  function printSummary() {
+    const text = generateSummary();
+    if (!text) {
+      alert("먼저 내용을 입력하고 '내용 정리하기'를 눌러 요약본을 생성해주세요.");
+      return;
+    }
+    setTimeout(() => window.print(), 50);
+  }
+
   if (loading || !user) return null;
 
   return (
     <div className="space-y-4 pb-24">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between print:hidden">
         <h1 className="text-xl font-bold text-brand-700">🧑‍⚕️ 다학제(MDT) 환자 정리</h1>
         <div className="flex gap-2">
           {loadedId && (
@@ -373,11 +383,11 @@ export default function MdtPage() {
         </div>
       </div>
 
-      <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-2">
+      <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-2 print:hidden">
         등록번호/환자이름을 서버에 저장합니다. 접근 권한이 있는 인원만 이 앱에 접속할 수 있도록 URL 공유에 유의하세요.
       </div>
 
-      <section className="card space-y-3">
+      <section className="card space-y-3 print:hidden">
         <div>
           <label className="label">병원</label>
           <div className="flex gap-2">
@@ -422,7 +432,7 @@ export default function MdtPage() {
         </div>
       </section>
 
-      <section className="card space-y-3">
+      <section className="card space-y-3 print:hidden">
         <h2 className="font-medium text-slate-700">1. 환자 인적사항 및 진단 정보</h2>
         <div className="grid grid-cols-4 gap-3">
           <div><label className="label">등록번호 (*목록 저장 필수)</label><input className="input" value={regNo} onChange={(e) => setRegNo(e.target.value)} /></div>
@@ -497,7 +507,7 @@ export default function MdtPage() {
         </div>
       </section>
 
-      <section className="card space-y-2">
+      <section className="card space-y-2 print:hidden">
         <h2 className="font-medium text-slate-700">2. 환자 유형 선택 (To-Do)</h2>
         <div className="flex flex-wrap gap-2 bg-slate-50 rounded-lg p-3">
           {PTYPE_OPTIONS.map((o) => (
@@ -528,7 +538,7 @@ export default function MdtPage() {
         )}
       </section>
 
-      <section className="card space-y-2">
+      <section className="card space-y-2 print:hidden">
         <h2 className="font-medium text-slate-700">3. 수술 및 병리 기록</h2>
         {surgRows.map((row, i) => (
           <div key={i} className="grid grid-cols-[1fr_120px_2fr_auto] gap-2 items-start">
@@ -558,7 +568,7 @@ export default function MdtPage() {
         </button>
       </section>
 
-      <section className="card space-y-2">
+      <section className="card space-y-2 print:hidden">
         <h2 className="font-medium text-slate-700">4. 영상 검사</h2>
         {imgRows.map((row, i) => (
           <div key={i} className="grid grid-cols-[1fr_120px_2fr_auto] gap-2 items-start">
@@ -588,15 +598,29 @@ export default function MdtPage() {
         </button>
       </section>
 
-      <section className="card space-y-3">
+      <section className="card space-y-3 print:hidden">
         <h2 className="font-medium text-slate-700">5. MDT 요약 결과</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button className="btn" type="button" onClick={generateSummary}>내용 정리하기</button>
           <button className="btn-outline" type="button" onClick={copyText}>전체 복사</button>
           <button className="btn-outline" type="button" onClick={saveToServer}>서버에 저장</button>
+          <button className="btn-outline" type="button" onClick={printSummary}>🖨️ 요약본 인쇄</button>
         </div>
         <textarea className="input min-h-[280px] font-mono text-sm" value={summary} onChange={(e) => setSummary(e.target.value)} />
       </section>
+
+      {/* 프린트 전용 구역 - 평소엔 안 보이고, 인쇄(Ctrl+P) 할 때만 이 구역만 출력됩니다 */}
+      <div className="hidden print:block">
+        <h2 className="text-xl font-bold border-b-2 border-black pb-3 mb-6 text-center">
+          다학제(MDT) 진료 환자 요약지
+          {(name || regNo) && (
+            <div className="text-sm font-normal text-slate-600 mt-1">
+              환자: {name} {regNo && `(${regNo})`}
+            </div>
+          )}
+        </h2>
+        <pre className="whitespace-pre-wrap font-sans text-[12pt] leading-relaxed text-black">{summary}</pre>
+      </div>
     </div>
   );
 }
