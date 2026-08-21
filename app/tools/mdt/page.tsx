@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { HospitalSite, MdtPatient, MdtSurgRow, MdtImgRow } from "@/lib/types";
+import { formatChartReview } from "@/lib/chartReview";
 
 interface SurgRow {
   name: string;
@@ -67,17 +68,21 @@ function autoFormatDateInput(raw: string) {
   return raw;
 }
 
-// Enter로 줄바꿈이 되는 자동 높이조절 textarea
+// Enter로 줄바꿈이 되는 자동 높이조절 textarea.
+// cleanOnPaste가 true면, EHR에서 복사한 결과를 붙여넣을 때 차트리뷰 포맷터와 동일한 로직으로
+// 불필요한 정보(환자번호/판독의/검사일시/단위 등)를 자동으로 정리해서 넣어줍니다.
 function AutoTextarea({
   value,
   onChange,
   placeholder,
   className = "",
+  cleanOnPaste = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
+  cleanOnPaste?: boolean;
 }) {
   return (
     <textarea
@@ -95,6 +100,27 @@ function AutoTextarea({
         el.style.height = "auto";
         el.style.height = el.scrollHeight + "px";
       }}
+      onPaste={
+        cleanOnPaste
+          ? (e) => {
+              const pasted = e.clipboardData.getData("text");
+              // EHR 형식(Neck CT/Thyroid US/혈액검사 등)으로 보이면 자동 정리, 아니면 원문 그대로 붙여넣기
+              const looksLikeEhr = /【검사명】|【검사일】|Thyroid Ultrasonography|CI:|-{10,}/.test(pasted);
+              if (!looksLikeEhr) return; // 기본 붙여넣기 동작 유지
+              e.preventDefault();
+              const cleaned = formatChartReview(pasted);
+              const el = e.currentTarget;
+              const start = el.selectionStart ?? el.value.length;
+              const end = el.selectionEnd ?? el.value.length;
+              const newVal = el.value.slice(0, start) + cleaned + el.value.slice(end);
+              onChange(newVal);
+              setTimeout(() => {
+                el.style.height = "auto";
+                el.style.height = el.scrollHeight + "px";
+              }, 0);
+            }
+          : undefined
+      }
     />
   );
 }
@@ -331,9 +357,20 @@ export default function MdtPage() {
     <div className="space-y-4 pb-24">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-800">다학제(MDT) 환자 정리</h1>
-        <button className="btn-outline !px-3 !py-1.5 text-xs" onClick={resetForm} type="button">
-          새 환자 작성
-        </button>
+        <div className="flex gap-2">
+          {loadedId && (
+            <button
+              className="btn-outline !px-3 !py-1.5 text-xs !text-red-500 !border-red-200"
+              onClick={() => deletePatient(loadedId)}
+              type="button"
+            >
+              이 환자 삭제
+            </button>
+          )}
+          <button className="btn-outline !px-3 !py-1.5 text-xs" onClick={resetForm} type="button">
+            새 환자 작성
+          </button>
+        </div>
       </div>
 
       <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-2">
@@ -508,9 +545,10 @@ export default function MdtPage() {
               onChange={(e) => setSurgRows((p) => p.map((r, j) => (j === i ? { ...r, date: autoFormatDateInput(e.target.value) } : r)))}
             />
             <AutoTextarea
-              placeholder="소견 입력"
+              placeholder="소견 입력 (EHR 결과 붙여넣으면 자동 정리)"
               value={row.path}
               onChange={(v) => setSurgRows((p) => p.map((r, j) => (j === i ? { ...r, path: v } : r)))}
+              cleanOnPaste
             />
             <button type="button" className="text-red-400 text-xs mt-2" onClick={() => setSurgRows((p) => p.filter((_, j) => j !== i))}>삭제</button>
           </div>
@@ -537,9 +575,10 @@ export default function MdtPage() {
               onChange={(e) => setImgRows((p) => p.map((r, j) => (j === i ? { ...r, date: autoFormatDateInput(e.target.value) } : r)))}
             />
             <AutoTextarea
-              placeholder="소견 입력"
+              placeholder="소견 입력 (EHR 결과 붙여넣으면 자동 정리)"
               value={row.desc}
               onChange={(v) => setImgRows((p) => p.map((r, j) => (j === i ? { ...r, desc: v } : r)))}
+              cleanOnPaste
             />
             <button type="button" className="text-red-400 text-xs mt-2" onClick={() => setImgRows((p) => p.filter((_, j) => j !== i))}>삭제</button>
           </div>
