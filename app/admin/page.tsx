@@ -76,6 +76,13 @@ export default function AdminPage() {
     setEvaluations((prev) => prev.filter((e) => e.id !== id));
   }
 
+  async function handleDeleteMdt(id: string) {
+    if (!confirm("이 다학제 환자 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
+    await fetch(`/api/mdt?id=${id}`, { method: "DELETE" });
+    setMdtList((prev) => prev.filter((p) => p.id !== id));
+    if (mdtExpandedId === id) setMdtExpandedId(null);
+  }
+
   // --- 알고리즘 편집 ---
   const [diagnoses, setDiagnoses] = useState<DiagnosisRule[]>(DEFAULT_DIAGNOSES);
   const [algoSaved, setAlgoSaved] = useState(false);
@@ -293,6 +300,13 @@ export default function AdminPage() {
                     <pre className="whitespace-pre-wrap font-mono text-xs bg-white rounded p-3 border border-slate-200">
                       {p.summary || "(요약 없음)"}
                     </pre>
+                    <button
+                      onClick={() => handleDeleteMdt(p.id)}
+                      className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-1"
+                      type="button"
+                    >
+                      이 환자 기록 삭제
+                    </button>
                   </div>
                 )}
               </div>
