@@ -3,7 +3,7 @@ import { AuthProvider } from "@/lib/auth";
 import NavBar from "./NavBar";
 
 export const metadata = {
-  title: "ENT 응급콜 관리",
+  title: "HY-ENT Workspace",
   description: "이비인후과 전공의 응급실 노티 및 역량 관리",
 };
 

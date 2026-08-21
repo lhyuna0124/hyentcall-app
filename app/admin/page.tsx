@@ -25,11 +25,6 @@ export default function AdminPage() {
 
   const residentList = RESIDENTS.filter((r) => !r.isAdmin);
 
-  // --- 평가 폼 ---
-  const [evalResident, setEvalResident] = useState(residentList[0]?.id ?? "");
-  const [evalDiagnosis, setEvalDiagnosis] = useState(DEFAULT_DIAGNOSES[0].id);
-  const [competency, setCompetency] = useState<1 | 2 | 3 | 4 | 5>(3);
-  const [note, setNote] = useState("");
   const [evaluations, setEvaluations] = useState<EvaluationRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
 
@@ -38,52 +33,7 @@ export default function AdminPage() {
     fetch("/api/notifications").then((r) => r.json()).then(setNotifications).catch(() => {});
   }, []);
 
-  // --- 다학제(MDT) 환자 목록 ---
-  const [mdtList, setMdtList] = useState<MdtPatient[]>([]);
-  const [mdtExpandedId, setMdtExpandedId] = useState<string | null>(null);
-  const [mdtSiteFilter, setMdtSiteFilter] = useState<"전체" | "구리" | "서울">("전체");
-  useEffect(() => {
-    fetch("/api/mdt").then((r) => r.json()).then(setMdtList).catch(() => {});
-  }, []);
-  const mdtFiltered = mdtList.filter((p) => mdtSiteFilter === "전체" || p.site === mdtSiteFilter);
-
-  async function submitEvaluation() {
-    if (!user) return;
-    const resident = residentList.find((r) => r.id === evalResident);
-    const diag = diagnoses.find((d) => d.id === evalDiagnosis);
-    const payload: Omit<EvaluationRecord, "id" | "createdAt"> = {
-      residentId: evalResident,
-      residentName: resident?.name ?? "",
-      evaluatorId: user.id,
-      diagnosisId: evalDiagnosis,
-      diagnosisLabel: diag?.label ?? "",
-      competency,
-      note,
-    };
-    const res = await fetch("/api/evaluations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    setEvaluations((prev) => [{ ...payload, id: data.id, createdAt: new Date().toISOString() }, ...prev]);
-    setNote("");
-  }
-
-  async function handleDeleteEvaluation(id: string) {
-    if (!confirm("이 평가 기록을 삭제할까요?")) return;
-    await fetch(`/api/evaluations?id=${id}`, { method: "DELETE" });
-    setEvaluations((prev) => prev.filter((e) => e.id !== id));
-  }
-
-  async function handleDeleteMdt(id: string) {
-    if (!confirm("이 다학제 환자 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
-    await fetch(`/api/mdt?id=${id}`, { method: "DELETE" });
-    setMdtList((prev) => prev.filter((p) => p.id !== id));
-    if (mdtExpandedId === id) setMdtExpandedId(null);
-  }
-
-  // --- 알고리즘 편집 ---
+  // --- 알고리즘 편집 (평가 폼보다 먼저 선언 필요) ---
   const [diagnoses, setDiagnoses] = useState<DiagnosisRule[]>(DEFAULT_DIAGNOSES);
   const [algoSaved, setAlgoSaved] = useState(false);
   useEffect(() => {
@@ -102,6 +52,102 @@ export default function AdminPage() {
     });
     setAlgoSaved(true);
     setTimeout(() => setAlgoSaved(false), 2000);
+  }
+
+  // --- 전공의별 일괄 역량 평가 ---
+  const [evalResident, setEvalResident] = useState(residentList[0]?.id ?? "");
+  const [bulkScores, setBulkScores] = useState<Record<string, number | "">>({});
+  const [bulkNote, setBulkNote] = useState("");
+  const [quickScore, setQuickScore] = useState<number>(5);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkSaved, setBulkSaved] = useState(false);
+
+  // 선택한 전공의의 진단명별 "가장 최근" 평가 점수를 불러와 초기값으로 채워줍니다.
+  const latestScoresForResident = useMemo(() => {
+    const map: Record<string, number> = {};
+    const mine = evaluations.filter((e) => e.residentId === evalResident);
+    for (const d of diagnoses) {
+      const forDx = mine.filter((e) => e.diagnosisId === d.id).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      if (forDx.length) map[d.id] = forDx[0].competency;
+    }
+    return map;
+  }, [evaluations, evalResident, diagnoses]);
+
+  useEffect(() => {
+    const init: Record<string, number | ""> = {};
+    diagnoses.forEach((d) => {
+      init[d.id] = latestScoresForResident[d.id] ?? "";
+    });
+    setBulkScores(init);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evalResident, diagnoses.length]);
+
+  function applyQuickScoreToAll() {
+    const next: Record<string, number | ""> = {};
+    diagnoses.forEach((d) => (next[d.id] = quickScore));
+    setBulkScores(next);
+  }
+
+  async function saveBulkEvaluations() {
+    if (!user) return;
+    const resident = residentList.find((r) => r.id === evalResident);
+    if (!resident) return;
+    const changed = diagnoses.filter((d) => {
+      const val = bulkScores[d.id];
+      return val !== "" && val !== (latestScoresForResident[d.id] ?? "");
+    });
+    if (changed.length === 0) {
+      alert("변경된 평가 점수가 없습니다.");
+      return;
+    }
+    setBulkSaving(true);
+    const results = await Promise.all(
+      changed.map(async (d) => {
+        const payload: Omit<EvaluationRecord, "id" | "createdAt"> = {
+          residentId: resident.id,
+          residentName: resident.name,
+          evaluatorId: user.id,
+          diagnosisId: d.id,
+          diagnosisLabel: d.label,
+          competency: bulkScores[d.id] as 1 | 2 | 3 | 4 | 5,
+          note: bulkNote || undefined,
+        };
+        const res = await fetch("/api/evaluations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        return { ...payload, id: data.id, createdAt: new Date().toISOString() } as EvaluationRecord;
+      })
+    );
+    setEvaluations((prev) => [...results, ...prev]);
+    setBulkNote("");
+    setBulkSaving(false);
+    setBulkSaved(true);
+    setTimeout(() => setBulkSaved(false), 2000);
+  }
+
+  // --- 다학제(MDT) 환자 목록 ---
+  const [mdtList, setMdtList] = useState<MdtPatient[]>([]);
+  const [mdtExpandedId, setMdtExpandedId] = useState<string | null>(null);
+  const [mdtSiteFilter, setMdtSiteFilter] = useState<"전체" | "구리" | "서울">("전체");
+  useEffect(() => {
+    fetch("/api/mdt").then((r) => r.json()).then(setMdtList).catch(() => {});
+  }, []);
+  const mdtFiltered = mdtList.filter((p) => mdtSiteFilter === "전체" || p.site === mdtSiteFilter);
+
+  async function handleDeleteEvaluation(id: string) {
+    if (!confirm("이 평가 기록을 삭제할까요?")) return;
+    await fetch(`/api/evaluations?id=${id}`, { method: "DELETE" });
+    setEvaluations((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  async function handleDeleteMdt(id: string) {
+    if (!confirm("이 다학제 환자 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
+    await fetch(`/api/mdt?id=${id}`, { method: "DELETE" });
+    setMdtList((prev) => prev.filter((p) => p.id !== id));
+    if (mdtExpandedId === id) setMdtExpandedId(null);
   }
 
   // --- 전공의별 요약 ---
@@ -150,45 +196,65 @@ export default function AdminPage() {
         </table>
       </section>
 
-      {/* 역량 평가 입력 */}
+      {/* 역량 평가 입력 (전공의별 일괄) */}
       <section className="card space-y-3">
-        <h2 className="font-medium text-slate-700">전공의 역량 평가 입력</h2>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="label">전공의</label>
-            <select className="input" value={evalResident} onChange={(e) => setEvalResident(e.target.value)}>
-              {residentList.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r.level})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">질환</label>
-            <select className="input" value={evalDiagnosis} onChange={(e) => setEvalDiagnosis(e.target.value)}>
-              {diagnoses.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">역량 점수</label>
-            <select className="input" value={competency} onChange={(e) => setCompetency(Number(e.target.value) as any)}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {COMPETENCY_LABEL[n]}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center justify-between">
+          <h2 className="font-medium text-slate-700">전공의별 역량 평가 (일괄 입력)</h2>
+          <select className="input w-48" value={evalResident} onChange={(e) => setEvalResident(e.target.value)}>
+            {residentList.map((r) => (
+              <option key={r.id} value={r.id}>{r.name} ({r.level})</option>
+            ))}
+          </select>
         </div>
-        <textarea className="input min-h-[60px]" placeholder="평가 메모 (선택)" value={note} onChange={(e) => setNote(e.target.value)} />
-        <button className="btn" onClick={submitEvaluation} type="button">
-          평가 저장
-        </button>
+
+        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-3">
+          <span className="text-sm text-slate-600">고년차라 대부분 개입이 필요 없다면, 한 번에</span>
+          <select className="input !w-auto !py-1" value={quickScore} onChange={(e) => setQuickScore(Number(e.target.value))}>
+            {[1, 2, 3, 4, 5].map((n) => (<option key={n} value={n}>{n}점</option>))}
+          </select>
+          <button className="btn-outline !py-1" type="button" onClick={applyQuickScoreToAll}>전체 질환에 적용</button>
+          <span className="text-xs text-slate-400">→ 아래에서 예외인 질환만 따로 낮춰서 저장하세요.</span>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto border border-slate-200 rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-white">
+              <tr className="text-left text-slate-400 border-b border-slate-200">
+                <th className="py-2 px-3">진단명</th>
+                <th className="px-3">기존 최근 점수</th>
+                <th className="px-3">새 점수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diagnoses.map((d) => (
+                <tr key={d.id} className="border-b border-slate-100 last:border-0">
+                  <td className="py-1.5 px-3">{d.label}</td>
+                  <td className="px-3 text-slate-400">{latestScoresForResident[d.id] ?? "-"}</td>
+                  <td className="px-3">
+                    <select
+                      className="input !py-1 !w-36"
+                      value={bulkScores[d.id] ?? ""}
+                      onChange={(e) => setBulkScores((prev) => ({ ...prev, [d.id]: e.target.value ? (Number(e.target.value) as any) : "" }))}
+                    >
+                      <option value="">평가 안함</option>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>{COMPETENCY_LABEL[n]}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <textarea className="input min-h-[50px]" placeholder="이번 평가에 공통으로 남길 메모 (선택)" value={bulkNote} onChange={(e) => setBulkNote(e.target.value)} />
+        <div className="flex items-center gap-3">
+          <button className="btn" onClick={saveBulkEvaluations} type="button" disabled={bulkSaving}>
+            {bulkSaving ? "저장 중..." : "변경된 점수 저장"}
+          </button>
+          {bulkSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
+        </div>
       </section>
 
       {/* 평가 기록 */}
