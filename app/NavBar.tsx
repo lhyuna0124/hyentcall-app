@@ -22,7 +22,7 @@ export default function NavBar() {
 
   return (
     <header className="sticky top-0 z-10 bg-gradient-to-r from-brand-800 via-brand-700 to-brand-600 shadow-md">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-4">
+      <div className="w-full px-4 h-16 flex items-center gap-4">
         <span className="font-bold text-white whitespace-nowrap text-lg tracking-tight flex-shrink-0">🏥 HY-ENT Workspace</span>
         <nav className="flex items-center gap-1 text-sm whitespace-nowrap overflow-x-auto flex-1 min-w-0">
           {tabs.map((t) => (

@@ -14,8 +14,5 @@ export interface ResourceItem {
 }
 
 export const RESOURCES: ResourceItem[] = [
-  // 예시 (실제 파일을 public/resources/ 에 넣은 뒤 주석을 해제하고 파일명을 맞춰주세요):
-  // { title: "이비인후과 인계장", filename: "handover.pdf", type: "pdf", category: "인계장" },
-  // { title: "편도절제술 설명 슬라이드 1", filename: "tonsillectomy-1.png", type: "image", category: "수술 설명" },
-  // { title: "편도절제술 설명 슬라이드 2", filename: "tonsillectomy-2.png", type: "image", category: "수술 설명" },
+  { title: "이비인후과 인계장", filename: "handover.pdf", type: "pdf", category: "인계장" },
 ];
