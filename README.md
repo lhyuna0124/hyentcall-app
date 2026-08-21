@@ -73,3 +73,18 @@ npm run dev
 ## 10. MDT 환자 데이터 관련 유의사항
 
 `/tools/mdt`는 환자 등록번호와 이름을 서버(Upstash)에 저장합니다. 로그인한 사람이면 누구나(같은 계정 체계를 쓰는 전공의/교수 전원) 조회·수정·삭제할 수 있는 공용 목록입니다. 병원 내부망 전용 접근, URL 비공개 유지 등 접근 통제에 특히 신경 써주세요.
+
+## 11. 자료실 (인계장 PDF / 수술 설명 이미지)
+
+`/tools/resources` 페이지에서 파일을 바로 볼 수 있습니다. 방법:
+
+1. PDF나 이미지 파일을 `public/resources/` 폴더 안에 넣습니다 (예: `public/resources/handover.pdf`).
+2. `lib/resources.ts`의 `RESOURCES` 배열에 항목을 추가합니다:
+   ```ts
+   { title: "이비인후과 인계장", filename: "handover.pdf", type: "pdf", category: "인계장" },
+   ```
+3. GitHub에 커밋하면 Vercel이 자동으로 재배포하면서 `public/` 폴더 안의 파일이 그대로 `https://내주소/resources/파일명`으로 열립니다.
+
+PPT는 "파일 → 다른 이름으로 저장 → PNG/JPEG"로 슬라이드별 이미지로 내보낸 뒤 같은 방식으로 등록하면, 자료실 화면에서 썸네일 그리드로 보이고 클릭하면 크게 볼 수 있습니다.
+
+파일 용량이 크면(특히 고화질 PPT 이미지) GitHub 저장소 용량과 배포 속도에 영향을 줄 수 있으니, 너무 큰 원본 대신 적당히 압축한 이미지를 권장합니다.

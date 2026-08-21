@@ -28,10 +28,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center">
-      <form onSubmit={handleSubmit} className="card w-full max-w-sm space-y-4">
+    <div className="min-h-[80vh] flex items-center justify-center bg-gradient-to-b from-brand-50 to-white -m-4">
+      <form onSubmit={handleSubmit} className="card w-full max-w-sm space-y-4 border-t-4 border-brand-600">
         <div className="text-center mb-2">
-          <h1 className="text-lg font-semibold text-slate-800">ENT 응급콜 관리</h1>
+          <div className="text-3xl mb-1">🏥</div>
+          <h1 className="text-lg font-bold text-brand-700">HY-ENT Workspace</h1>
           <p className="text-sm text-slate-500 mt-1">이름과 휴대폰 뒷 4자리로 로그인하세요.</p>
         </div>
         <div>

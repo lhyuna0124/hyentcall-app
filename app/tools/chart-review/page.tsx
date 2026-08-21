@@ -33,7 +33,7 @@ export default function ChartReviewPage() {
   return (
     <div className="space-y-4 pb-20">
       <div>
-        <h1 className="text-xl font-semibold text-slate-800">차트리뷰 포맷터</h1>
+        <h1 className="text-xl font-bold text-brand-700">📋 차트리뷰 포맷터</h1>
         <p className="text-sm text-slate-500 mt-1">
           EHR에서 Neck CT / Thyroid US / ANA / 혈액검사 결과를 그대로 복사해서 붙여넣으면, 환자번호·판독의·처방일 같은 불필요한 정보와 검사일시·단위를 제거하고 깔끔하게 정리해줍니다. 변환과 동시에 클립보드에 자동 복사됩니다.
         </p>

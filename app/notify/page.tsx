@@ -617,7 +617,7 @@ export default function NotifyPage() {
   return (
     <div className="space-y-3 pb-24">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-800">응급 노티 작성</h1>
+        <h1 className="text-xl font-bold text-brand-700">🚑 응급 노티 작성</h1>
         <div className="flex items-center gap-2">
           <span className={`chip ${riskColor(risk)}`}>위험도: {riskLabel(risk)}</span>
           <button type="button" onClick={saveDraft} className="btn-outline !px-3 !py-1.5 text-xs">임시저장</button>
@@ -706,20 +706,18 @@ export default function NotifyPage() {
       <details className="acc" open={openSections.hxSymptoms} onToggle={(e) => setOpenSections((p) => ({ ...p, hxSymptoms: (e.target as HTMLDetailsElement).open }))}>
         <summary>병력 및 증상</summary>
         <div className="acc-body">
-          <div>
-            <label className="label">주호소 (C/C)</label>
-            <input className="input" placeholder="예: 우측 인후통" value={chiefComplaint} onChange={(e) => setChiefComplaint(e.target.value)} />
-          </div>
-          <div className="flex gap-2 items-center">
-            <span className="text-sm text-slate-600">내원</span>
-            <input className="input w-20" value={onsetValue} onChange={(e) => setOnsetValue(e.target.value)} placeholder="5" />
+          <div className="flex gap-2 items-center flex-wrap">
+            <span className="text-sm text-slate-600 whitespace-nowrap">주호소</span>
+            <input className="input w-40" placeholder="예: 우측 인후통" value={chiefComplaint} onChange={(e) => setChiefComplaint(e.target.value)} />
+            <span className="text-sm text-slate-600 whitespace-nowrap">내원</span>
+            <input className="input w-16" value={onsetValue} onChange={(e) => setOnsetValue(e.target.value)} placeholder="5" />
             <select className="input w-20" value={onsetUnit} onChange={(e) => setOnsetUnit(e.target.value)}>
               <option value="일">일</option>
               <option value="시간">시간</option>
               <option value="주">주</option>
             </select>
-            <span className="text-sm text-slate-600">전부터</span>
-            <button className="btn-outline !px-2 !py-1 text-xs ml-auto" onClick={autoGenerateHx} type="button">⚡ 문장 자동완성</button>
+            <span className="text-sm text-slate-600 whitespace-nowrap">전부터</span>
+            <button className="btn-outline !px-2 !py-1 text-xs ml-auto whitespace-nowrap" onClick={autoGenerateHx} type="button">⚡ 문장 자동완성</button>
           </div>
           <textarea className="input min-h-[60px]" placeholder="증상 경과 및 hx" value={hx} onChange={(e) => setHx(e.target.value)} />
           <div className="flex items-end gap-4 flex-wrap">

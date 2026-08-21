@@ -183,7 +183,7 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-8 pb-20">
-      <h1 className="text-xl font-semibold text-slate-800">관리자</h1>
+      <h1 className="text-xl font-bold text-brand-700">⚙️ 관리자</h1>
 
       {/* Staff 일정 / 공지 게시판 */}
       <section className="card space-y-2">

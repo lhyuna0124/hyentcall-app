@@ -603,7 +603,7 @@ export default function UsReportPage() {
   return (
     <div className="space-y-4 pb-20">
       <div>
-        <h1 className="text-xl font-semibold text-slate-800">US Report 작성</h1>
+        <h1 className="text-xl font-bold text-brand-700">🩻 US Report 작성</h1>
         <p className="text-sm text-slate-500 mt-1">갑상선/경부 초음파 판독문을 빠르게 작성합니다.</p>
       </div>
       <div className="flex gap-2">
