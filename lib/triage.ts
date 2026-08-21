@@ -11,13 +11,14 @@ export const DEFAULT_DIAGNOSES: DiagnosisRule[] = [
   { id: "tonsillitis", label: "Acute tonsillitis", baseRisk: "LOW", immediateAdmit: false },
   { id: "ptabscess", label: "Peritonsillar abscess", baseRisk: "MEDIUM", immediateAdmit: false },
   { id: "epiglottitis", label: "Acute epiglottitis", baseRisk: "HIGH", immediateAdmit: false },
+  { id: "cervical_lad", label: "Cervical lymphadenitis / lymphadenopathy", baseRisk: "LOW", immediateAdmit: false },
   { id: "parotitis", label: "Acute parotitis", baseRisk: "LOW", immediateAdmit: false },
   { id: "parotid_abscess", label: "Parotid abscess", baseRisk: "MEDIUM", immediateAdmit: false },
   { id: "airway_trauma", label: "Airway trauma", baseRisk: "HIGH", immediateAdmit: true },
   { id: "postop_bleeding", label: "Postop bleeding (tonsillectomy/thyroidectomy/LMS 등)", baseRisk: "HIGH", immediateAdmit: true },
   { id: "deep_neck", label: "Deep neck infection", baseRisk: "HIGH", immediateAdmit: true },
   { id: "transfer", label: "타병원 전원", baseRisk: "MEDIUM", immediateAdmit: false },
-  { id: "other", label: "기타", baseRisk: "LOW", immediateAdmit: false },
+  { id: "other", label: "기타 (자유롭게 기술)", baseRisk: "LOW", immediateAdmit: false },
 ];
 
 // 관리자 화면에서 이 규칙 자체를 수정할 수 있도록 KV에 저장/불러오기 (lib/kv.ts, /api/algorithm 참고)
