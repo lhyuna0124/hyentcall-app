@@ -1,8 +1,13 @@
-// Vercel KV(Redis)가 연결되어 있으면 그것을 사용하고,
-// 로컬 개발 등 KV 환경변수가 없을 때는 메모리 저장소로 자동 대체합니다.
-// (메모리 저장소는 서버 재시작/재배포 시 초기화되므로 실제 운영에는 반드시 Vercel KV를 연결하세요.
-//  Vercel 대시보드 -> Storage -> Create Database -> KV 를 생성하면 KV_REST_API_URL, KV_REST_API_TOKEN 이
-//  자동으로 프로젝트 환경변수에 추가됩니다.)
+// Upstash에서 직접 만든 무료 Redis 데이터베이스를 사용합니다 (Vercel Marketplace/카드 등록 불필요).
+//
+// 사용 방법:
+// 1) https://console.upstash.com 에서 무료 가입 후 Redis 데이터베이스 생성 (Free 티어 선택)
+// 2) 생성된 DB의 "REST API" 섹션에서 UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN 값을 복사
+// 3) Vercel 프로젝트 -> Settings -> Environment Variables 에 위 두 값을 이름 그대로 추가
+// 4) Redeploy
+//
+// 두 환경변수가 없으면(로컬 개발 등) 메모리 저장소로 자동 대체됩니다.
+// (메모리 저장소는 서버 재시작/재배포 시 초기화됩니다.)
 
 type Store = Map<string, string>;
 const globalAny = global as any;
@@ -11,27 +16,29 @@ if (!globalAny.__memStore) {
 }
 const memStore: Store = globalAny.__memStore;
 
-const hasKV = !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const hasUpstash = !!UPSTASH_URL && !!UPSTASH_TOKEN;
 
-async function getKvClient() {
-  const { kv } = await import("@vercel/kv");
-  return kv;
+async function getRedisClient() {
+  const { Redis } = await import("@upstash/redis");
+  return new Redis({ url: UPSTASH_URL!, token: UPSTASH_TOKEN! });
 }
 
 export async function kvGet<T>(key: string): Promise<T | null> {
-  if (hasKV) {
-    const kv = await getKvClient();
-    const v = await kv.get<T>(key);
-    return v ?? null;
+  if (hasUpstash) {
+    const redis = await getRedisClient();
+    const v = await redis.get<T>(key);
+    return (v as T) ?? null;
   }
   const raw = memStore.get(key);
   return raw ? (JSON.parse(raw) as T) : null;
 }
 
 export async function kvSet<T>(key: string, value: T): Promise<void> {
-  if (hasKV) {
-    const kv = await getKvClient();
-    await kv.set(key, value as any);
+  if (hasUpstash) {
+    const redis = await getRedisClient();
+    await redis.set(key, value as any);
     return;
   }
   memStore.set(key, JSON.stringify(value));
