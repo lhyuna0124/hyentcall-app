@@ -11,6 +11,7 @@ export const DEFAULT_DIAGNOSES: DiagnosisRule[] = [
   { id: "tonsillitis", label: "Acute tonsillitis", baseRisk: "LOW", immediateAdmit: false },
   { id: "ptabscess", label: "Peritonsillar abscess", baseRisk: "MEDIUM", immediateAdmit: false },
   { id: "epiglottitis", label: "Acute epiglottitis", baseRisk: "HIGH", immediateAdmit: false },
+  { id: "acute_laryngitis", label: "Acute laryngitis", baseRisk: "LOW", immediateAdmit: false },
   { id: "cervical_lad", label: "Cervical lymphadenitis / lymphadenopathy", baseRisk: "LOW", immediateAdmit: false },
   { id: "parotitis", label: "Acute parotitis", baseRisk: "LOW", immediateAdmit: false },
   { id: "parotid_abscess", label: "Parotid abscess", baseRisk: "MEDIUM", immediateAdmit: false },

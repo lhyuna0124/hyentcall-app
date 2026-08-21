@@ -54,5 +54,9 @@ body {
 }
 
 .acc .acc-body {
-  @apply px-5 pb-5 space-y-3;
+  @apply px-5 pb-4 space-y-2;
+}
+
+.field-row {
+  @apply flex items-center justify-between py-1 border-b border-slate-100 last:border-0;
 }

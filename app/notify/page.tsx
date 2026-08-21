@@ -9,6 +9,7 @@ import { EvaluationRecord, Disposition, DISPOSITION_LABEL, PROFESSORS } from "@/
 import { suggestContact, ContactSuggestion } from "@/lib/contactPolicy";
 
 type PM = "" | "-" | "+" | "±";
+type Side = "" | "Rt" | "Lt";
 
 function Toggle({
   label,
@@ -22,7 +23,7 @@ function Toggle({
   options?: PM[];
 }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+    <div className="field-row">
       <span className="text-sm text-slate-700">{label}</span>
       <div className="flex gap-1">
         {options.map((v) => (
@@ -30,7 +31,7 @@ function Toggle({
             type="button"
             key={v}
             onClick={() => onChange(value === v ? "" : v)}
-            className={`w-8 h-8 rounded-md text-xs font-semibold border ${
+            className={`w-8 h-7 rounded-md text-xs font-semibold border ${
               value === v ? "bg-brand-600 text-white border-brand-600" : "bg-white text-slate-500 border-slate-300 hover:bg-slate-50"
             }`}
           >
@@ -42,13 +43,30 @@ function Toggle({
   );
 }
 
+function SideChips({ value, onChange }: { value: Side; onChange: (v: Side) => void }) {
+  return (
+    <div className="flex gap-1">
+      {(["Rt", "Lt"] as const).map((s) => (
+        <button
+          type="button"
+          key={s}
+          onClick={() => onChange(value === s ? "" : s)}
+          className={`px-2.5 py-1 rounded-md text-xs border ${value === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function MultiCheck({ options, values, onChange }: { options: string[]; values: string[]; onChange: (v: string[]) => void }) {
   function toggle(opt: string) {
     if (values.includes(opt)) onChange(values.filter((v) => v !== opt));
     else onChange([...values, opt]);
   }
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {options.map((opt) => (
         <button
           type="button"
@@ -67,12 +85,14 @@ const BASE_SYMPTOMS = ["General weakness", "Fever", "Chill", "Sore throat", "Ody
 const PAROTID_SYMPTOMS = ["Facial palsy", "Facial swelling"];
 const PAROTID_DX = ["parotitis", "parotid_abscess"];
 const ABSCESS_DX = ["ptabscess", "parotid_abscess", "deep_neck"];
+const AIRWAY_FREE_TEXT_DX = ["airway_trauma", "epiglottitis", "acute_laryngitis"];
 
 function isRelevantGroup(group: "pharynx" | "lymphNode" | "inflammatory" | "salivary" | "oralFocus", diagnosisId: string) {
   switch (diagnosisId) {
     case "tonsillitis":
     case "ptabscess":
     case "epiglottitis":
+    case "acute_laryngitis":
       return group === "pharynx";
     case "cervical_lad":
       return group === "lymphNode" || group === "inflammatory";
@@ -93,8 +113,9 @@ interface FormSnapshot {
   dentalHx: PM; dentalDetails: string[]; dentalEtc: string;
   onsetValue: string; onsetUnit: string; hx: string;
   symptoms: string[]; bt: string;
-  tonsilFindings: string[]; ptBulging: PM; uvulaDeviation: "" | "Lt" | "Rt"; lateralWallSwelling: PM;
-  larynxSwelling: PM; epiglottisSwelling: PM;
+  tonsilFindings: string[]; ptBulging: PM; ptBulgingSide: Side; uvulaDeviation: "" | "Lt" | "Rt";
+  lateralWallSwelling: PM; lateralWallSide: Side;
+  larynxSwelling: PM; epiglottisSwelling: PM; airwayExtraFindings: string;
   tvcVisible: "visible" | "not_visible" | ""; vocalCordMovement: "" | "intact" | "paresis" | "palsy"; vocalCordSide: "" | "Rt" | "Lt" | "Bilateral";
   lnSide: "" | "Rt" | "Lt" | "Bilateral"; lnLevel: string[]; lnSizeText: string;
   tenderness: PM; erythema: PM; heating: PM; pus: PM;
@@ -102,7 +123,7 @@ interface FormSnapshot {
   smgSide: string; smgStatus: string[]; smgDuct: string;
   oralFocus: string[]; dentalCariesTeeth: string;
   aspirationDone: PM; idDone: PM; pusAmount: string;
-  labText: string; ctReadType: "구두판독" | "정식판독" | "판독 못받음"; ctFinding: string;
+  labText: string; ctReadType: "구두판독" | "정식판독" | "추후 판독확인 필요"; ctFinding: string;
   treatReasons: string[]; extraNote: string;
   dietType: "" | "NPO" | "SIPS" | "일반식이"; tpn: PM;
   professorName: string;
@@ -142,50 +163,51 @@ export default function NotifyPage() {
   const [prevSurgDate, setPrevSurgDate] = useState("");
   const [prevSurgName, setPrevSurgName] = useState("");
 
-  // --- 기저질환 (항상 표시) ---
+  // --- 기저질환 ---
   const [underlyingItems, setUnderlyingItems] = useState<string[]>([]);
   const [underlyingEtc, setUnderlyingEtc] = useState("");
   const [antiplatelet, setAntiplatelet] = useState<string[]>([]);
 
-  // --- 최근 치과 치료력 ---
+  // --- 치과 치료력 ---
   const [dentalHx, setDentalHx] = useState<PM>("");
   const [dentalDetails, setDentalDetails] = useState<string[]>([]);
   const [dentalEtc, setDentalEtc] = useState("");
 
-  // --- 병력 ---
+  // --- 병력/증상 ---
   const [onsetValue, setOnsetValue] = useState("");
   const [onsetUnit, setOnsetUnit] = useState("일");
   const [hx, setHx] = useState("");
-
-  // --- 증상 ---
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [bt, setBt] = useState("");
 
-  // --- Airway 평가 (항상 표시, 4개 항목만) ---
+  // --- Airway 평가 ---
   const [larynxSwelling, setLarynxSwelling] = useState<PM>("");
   const [epiglottisSwelling, setEpiglottisSwelling] = useState<PM>("");
+  const [airwayExtraFindings, setAirwayExtraFindings] = useState("");
   const [tvcVisible, setTvcVisible] = useState<"visible" | "not_visible" | "">("");
   const [vocalCordMovement, setVocalCordMovement] = useState<"" | "intact" | "paresis" | "palsy">("");
   const [vocalCordSide, setVocalCordSide] = useState<"" | "Rt" | "Lt" | "Bilateral">("");
 
-  // --- Pharynx/Tonsil (해당 진단에서만 표시) ---
+  // --- Pharynx/Tonsil ---
   const [tonsilFindings, setTonsilFindings] = useState<string[]>([]);
   const [ptBulging, setPtBulging] = useState<PM>("");
+  const [ptBulgingSide, setPtBulgingSide] = useState<Side>("");
   const [uvulaDeviation, setUvulaDeviation] = useState<"" | "Lt" | "Rt">("");
   const [lateralWallSwelling, setLateralWallSwelling] = useState<PM>("");
+  const [lateralWallSide, setLateralWallSide] = useState<Side>("");
 
-  // --- Lymph node (해당 진단에서만 표시) ---
+  // --- Lymph node ---
   const [lnSide, setLnSide] = useState<"" | "Rt" | "Lt" | "Bilateral">("");
   const [lnLevel, setLnLevel] = useState<string[]>([]);
   const [lnSizeText, setLnSizeText] = useState("");
 
-  // --- 염증 징후 (해당 진단에서만 표시, -/+ 만) ---
+  // --- 염증 징후 ---
   const [tenderness, setTenderness] = useState<PM>("");
   const [erythema, setErythema] = useState<PM>("");
   const [heating, setHeating] = useState<PM>("");
   const [pus, setPus] = useState<PM>("");
 
-  // --- 타액선 (해당 진단에서만 표시) ---
+  // --- 타액선 ---
   const [parotidSide, setParotidSide] = useState("");
   const [parotidStatus, setParotidStatus] = useState<string[]>([]);
   const [parotidDuct, setParotidDuct] = useState("");
@@ -193,7 +215,7 @@ export default function NotifyPage() {
   const [smgStatus, setSmgStatus] = useState<string[]>([]);
   const [smgDuct, setSmgDuct] = useState("");
 
-  // --- 구강저 (해당 진단에서만 표시) ---
+  // --- 구강저 ---
   const [oralFocus, setOralFocus] = useState<string[]>([]);
   const [dentalCariesTeeth, setDentalCariesTeeth] = useState("");
 
@@ -205,7 +227,7 @@ export default function NotifyPage() {
   // --- Lab / CT ---
   const [labText, setLabText] = useState("");
   const parsedLabs: ParsedLab[] = useMemo(() => parseLabText(labText), [labText]);
-  const [ctReadType, setCtReadType] = useState<"구두판독" | "정식판독" | "판독 못받음">("구두판독");
+  const [ctReadType, setCtReadType] = useState<"구두판독" | "정식판독" | "추후 판독확인 필요">("구두판독");
   const [ctFinding, setCtFinding] = useState("");
 
   // --- 치료 계획 ---
@@ -225,7 +247,6 @@ export default function NotifyPage() {
   const [explainProcedure, setExplainProcedure] = useState<PM>("");
   const [consentStatus, setConsentStatus] = useState<"" | "temp" | "signed">("");
 
-  // --- 아코디언 열림 상태 (표시되는 그룹만 관리) ---
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     underlying: true, hxSymptoms: true, pharynx: true, lymphNode: true, inflammatory: true,
     salivary: true, oralFocus: true, abscess: true, labCt: true, plan: true,
@@ -236,6 +257,7 @@ export default function NotifyPage() {
   const isParotidDx = PAROTID_DX.includes(diagnosisId);
   const isAbscessDx = ABSCESS_DX.includes(diagnosisId);
   const isPostopBleeding = diagnosisId === "postop_bleeding";
+  const showAirwayFreeText = AIRWAY_FREE_TEXT_DX.includes(diagnosisId);
   const symptomOptions = isParotidDx ? [...BASE_SYMPTOMS, ...PAROTID_SYMPTOMS] : BASE_SYMPTOMS;
 
   const showPharynx = isRelevantGroup("pharynx", diagnosisId);
@@ -274,8 +296,8 @@ export default function NotifyPage() {
       dentalHx, dentalDetails, dentalEtc,
       onsetValue, onsetUnit, hx,
       symptoms, bt,
-      tonsilFindings, ptBulging, uvulaDeviation, lateralWallSwelling,
-      larynxSwelling, epiglottisSwelling,
+      tonsilFindings, ptBulging, ptBulgingSide, uvulaDeviation, lateralWallSwelling, lateralWallSide,
+      larynxSwelling, epiglottisSwelling, airwayExtraFindings,
       tvcVisible, vocalCordMovement, vocalCordSide,
       lnSide, lnLevel, lnSizeText,
       tenderness, erythema, heating, pus,
@@ -296,8 +318,9 @@ export default function NotifyPage() {
     setDentalHx(s.dentalHx || ""); setDentalDetails(s.dentalDetails || []); setDentalEtc(s.dentalEtc || "");
     setOnsetValue(s.onsetValue); setOnsetUnit(s.onsetUnit); setHx(s.hx);
     setSymptoms(s.symptoms); setBt(s.bt);
-    setTonsilFindings(s.tonsilFindings); setPtBulging(s.ptBulging); setUvulaDeviation(s.uvulaDeviation); setLateralWallSwelling(s.lateralWallSwelling);
-    setLarynxSwelling(s.larynxSwelling); setEpiglottisSwelling(s.epiglottisSwelling);
+    setTonsilFindings(s.tonsilFindings); setPtBulging(s.ptBulging); setPtBulgingSide(s.ptBulgingSide || "");
+    setUvulaDeviation(s.uvulaDeviation); setLateralWallSwelling(s.lateralWallSwelling); setLateralWallSide(s.lateralWallSide || "");
+    setLarynxSwelling(s.larynxSwelling); setEpiglottisSwelling(s.epiglottisSwelling); setAirwayExtraFindings(s.airwayExtraFindings || "");
     setTvcVisible(s.tvcVisible); setVocalCordMovement(s.vocalCordMovement || ""); setVocalCordSide(s.vocalCordSide || "");
     setLnSide(s.lnSide || ""); setLnLevel(s.lnLevel || []); setLnSizeText(s.lnSizeText || "");
     setTenderness(s.tenderness || ""); setErythema(s.erythema || ""); setHeating(s.heating || ""); setPus(s.pus || "");
@@ -347,21 +370,20 @@ export default function NotifyPage() {
     setHx(`${symptomText} 증상 있어 local 치료하였으나 호전 없어 본원 응급실 내원하여 본과 진료 의뢰되신분입니다.`);
   }
 
-  function buildPhysicalExamLines(): string[] {
-    const lines: string[] = [];
-
-    // Airway 평가 (항상)
-    if (larynxSwelling) lines.push(`Larynx swelling ${larynxSwelling}`);
-    if (epiglottisSwelling) lines.push(`Epiglottis swelling ${epiglottisSwelling}`);
-    if (vocalCordMovement) {
-      const sideText = vocalCordSide ? `${vocalCordSide} ` : "";
-      lines.push(`Vocal cord movement: ${sideText}${vocalCordMovement}`);
-    }
+  // 신체진찰 소견 전체를 한 줄로 이어지는 문장으로 생성합니다.
+  function buildPhysicalExamText(): string {
+    const parts: string[] = [];
 
     if (showPharynx) {
-      if (tonsilFindings.length) lines.push(`Tonsil: ${tonsilFindings.join(", ")}`);
-      if (ptBulging) lines.push(`Peritonsillar bulging (${ptBulging})${uvulaDeviation ? `, uvula deviation ${uvulaDeviation}` : ""}`);
-      if (lateralWallSwelling) lines.push(`Lateral pharyngeal wall swelling ${lateralWallSwelling}`);
+      if (tonsilFindings.length) parts.push(`Tonsil: ${tonsilFindings.join(", ")}`);
+      if (ptBulging) {
+        let s = `Peritonsillar bulging (${ptBulging})${ptBulgingSide ? ` ${ptBulgingSide}` : ""}`;
+        if (uvulaDeviation) s += `, uvula deviation ${uvulaDeviation}`;
+        parts.push(s);
+      }
+      if (lateralWallSwelling) {
+        parts.push(`Lateral pharyngeal wall swelling ${lateralWallSwelling}${lateralWallSide ? ` ${lateralWallSide}` : ""}`);
+      }
     }
 
     if (showLymphNode) {
@@ -369,7 +391,7 @@ export default function NotifyPage() {
       if (lnSide) lnParts.push(lnSide);
       if (lnLevel.length) lnParts.push(`level ${lnLevel.join("/")}`);
       if (lnSizeText) lnParts.push(lnSizeText);
-      if (lnParts.length) lines.push(`Lymph node: ${lnParts.join(", ")}`);
+      if (lnParts.length) parts.push(`Lymph node: ${lnParts.join(", ")}`);
     }
 
     if (showInflammatory) {
@@ -378,15 +400,15 @@ export default function NotifyPage() {
       if (erythema) inflam.push(`Erythema ${erythema}`);
       if (heating) inflam.push(`Heating sensation ${heating}`);
       if (pus) inflam.push(`Pus ${pus}`);
-      if (inflam.length) lines.push(inflam.join(", "));
+      if (inflam.length) parts.push(inflam.join(", "));
     }
 
     if (showSalivary) {
       if (parotidSide || parotidStatus.length) {
-        lines.push(`Parotid gland: ${[parotidSide, parotidStatus.join("/"), parotidDuct ? `Stensen's duct orifice ${parotidDuct}` : ""].filter(Boolean).join(", ")}`);
+        parts.push(`Parotid gland: ${[parotidSide, parotidStatus.join("/"), parotidDuct ? `Stensen's duct orifice ${parotidDuct}` : ""].filter(Boolean).join(", ")}`);
       }
       if (smgSide || smgStatus.length) {
-        lines.push(`SMG: ${[smgSide, smgStatus.join("/"), smgDuct ? `Wharton's duct orifice ${smgDuct}` : ""].filter(Boolean).join(", ")}`);
+        parts.push(`SMG: ${[smgSide, smgStatus.join("/"), smgDuct ? `Wharton's duct orifice ${smgDuct}` : ""].filter(Boolean).join(", ")}`);
       }
     }
 
@@ -394,10 +416,29 @@ export default function NotifyPage() {
       const oralText = oralFocus
         .map((o) => (o === "Dental caries" && dentalCariesTeeth ? `Dental caries (치아 #${dentalCariesTeeth})` : o))
         .join(", ");
-      lines.push(`Oral cavity/FOM: ${oralText}`);
+      parts.push(`Oral cavity/FOM: ${oralText}`);
     }
 
-    return lines;
+    if (showAirwayFreeText && airwayExtraFindings) parts.push(airwayExtraFindings);
+
+    // Airway 평가: 이상 소견이 있으면 구체적으로, 전부 정상이면 요약 문구 하나로
+    const airwayAbnormal: string[] = [];
+    if (larynxSwelling && larynxSwelling !== "-") airwayAbnormal.push(`Larynx swelling ${larynxSwelling}`);
+    if (epiglottisSwelling && epiglottisSwelling !== "-") airwayAbnormal.push(`Epiglottis swelling ${epiglottisSwelling}`);
+    if (vocalCordMovement && vocalCordMovement !== "intact") {
+      const sideText = vocalCordSide ? `${vocalCordSide} ` : "";
+      airwayAbnormal.push(`Vocal cord movement: ${sideText}${vocalCordMovement}`);
+    }
+    if (tvcVisible === "not_visible") airwayAbnormal.push("TVC 확인 안됨");
+
+    if (airwayAbnormal.length) {
+      parts.push(...airwayAbnormal);
+    } else if (larynxSwelling || epiglottisSwelling || tvcVisible || vocalCordMovement) {
+      // 하나라도 입력이 있었고, 모두 정상이었던 경우에만 요약 문구 추가
+      parts.push("그 외 airway intact 하였습니다");
+    }
+
+    return parts.join(", ");
   }
 
   function buildAspirationLine(): string {
@@ -441,7 +482,7 @@ export default function NotifyPage() {
     let line = "Lab 상";
     if (labSummary) line += ` ${labSummary} 확인되며,`;
     if (!ctFinding) return line;
-    if (ctReadType === "판독 못받음") return `${line} Neck CT (CE) 판독 못받은 상태이며, 화면 상 ${ctFinding} 소견 보입니다.`;
+    if (ctReadType === "추후 판독확인 필요") return `${line} Neck CT (CE) 상 ${ctFinding} 소견 보입니다 (추후 판독 확인 필요).`;
     return `${line} Neck CT (CE) ${ctReadType} 상 ${ctFinding} 확인됩니다.`;
   }
 
@@ -473,12 +514,12 @@ export default function NotifyPage() {
     }
 
     if (onsetValue || hx) lines.push(`내원 ${onsetValue}${onsetUnit} 전부터 ${hx}`);
-    if (symptoms.length || bt) lines.push(`증상: ${symptoms.join(" ")}${bt ? ` (BT ${bt}도)` : ""}`);
 
-    lines.push("");
-    lines.push("신체진찰 상");
-    const examLines = buildPhysicalExamLines();
-    if (examLines.length) lines.push(examLines.join("\n"));
+    const examText = buildPhysicalExamText();
+    if (examText) {
+      lines.push("");
+      lines.push(`신체진찰 상 ${examText}.`);
+    }
 
     const aspirationLine = buildAspirationLine();
     if (aspirationLine) {
@@ -534,7 +575,7 @@ export default function NotifyPage() {
         underlying: [...underlyingItems, underlyingEtc].filter(Boolean).join(", ") || "없음",
         hx: `${onsetValue}${onsetUnit} 전부터 ${hx}`,
         symptoms, bt, tonsilFindings,
-        physicalExam: buildPhysicalExamLines().join(" / "),
+        physicalExam: buildPhysicalExamText(),
         labSummary: formatLabSummary(parsedLabs),
         ctFinding,
         treatmentPlan: [buildDietText(), buildAntibioticsText(), dexa === "+" ? `Dexa ${dexaFreq}` : "", careLevel.join(", ")].filter(Boolean).join(" / "),
@@ -558,7 +599,7 @@ export default function NotifyPage() {
     risk === "HIGH" ? "bg-red-50 border-red-200 text-red-700" : risk === "MEDIUM" ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-emerald-50 border-emerald-200 text-emerald-700";
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="space-y-3 pb-24">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-800">응급 노티 작성</h1>
         <div className="flex items-center gap-2">
@@ -575,7 +616,7 @@ export default function NotifyPage() {
       )}
 
       {/* 환자 기본정보 */}
-      <section className="card space-y-3">
+      <section className="card space-y-2">
         <h2 className="font-medium text-slate-700">환자 기본 정보</h2>
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2">
@@ -627,31 +668,29 @@ export default function NotifyPage() {
       <details className="acc" open={openSections.underlying} onToggle={(e) => setOpenSections((p) => ({ ...p, underlying: (e.target as HTMLDetailsElement).open }))}>
         <summary>기저질환 / 치과 치료력</summary>
         <div className="acc-body">
-          <div>
-            <label className="label">기저질환 (해당 시 선택)</label>
-            <MultiCheck options={["HTN", "DM", "Tbc", "Asthma"]} values={underlyingItems} onChange={setUnderlyingItems} />
-            <div className="mt-2">
-              <label className="label">항혈소판제 복용</label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">기저질환</label>
+              <MultiCheck options={["HTN", "DM", "Tbc", "Asthma"]} values={underlyingItems} onChange={setUnderlyingItems} />
+            </div>
+            <div>
+              <label className="label">항혈소판제</label>
               <MultiCheck options={["Aspirin", "Clopidogrel"]} values={antiplatelet} onChange={setAntiplatelet} />
             </div>
-            <input className="input mt-2" placeholder="기타 기저질환" value={underlyingEtc} onChange={(e) => setUnderlyingEtc(e.target.value)} />
           </div>
-          <div className="border-t border-slate-100 pt-3">
-            <label className="label">최근 치과 치료력</label>
-            <div className="flex gap-2 mb-2">
-              {(["-", "+"] as const).map((v) => (
-                <button type="button" key={v} onClick={() => setDentalHx(dentalHx === v ? "" : v)} className={`w-10 h-9 rounded-md text-xs font-semibold border ${dentalHx === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
-                  {v}
-                </button>
-              ))}
-            </div>
-            {dentalHx === "+" && (
-              <>
-                <MultiCheck options={["발치", "임플란트"]} values={dentalDetails} onChange={setDentalDetails} />
-                <input className="input mt-2" placeholder="기타 (선택)" value={dentalEtc} onChange={(e) => setDentalEtc(e.target.value)} />
-              </>
-            )}
+          <input className="input" placeholder="기타 기저질환" value={underlyingEtc} onChange={(e) => setUnderlyingEtc(e.target.value)} />
+          <div className="flex items-center gap-3 border-t border-slate-100 pt-2">
+            <span className="label mb-0 whitespace-nowrap">최근 치과 치료력</span>
+            {(["-", "+"] as const).map((v) => (
+              <button type="button" key={v} onClick={() => setDentalHx(dentalHx === v ? "" : v)} className={`w-9 h-8 rounded-md text-xs font-semibold border ${dentalHx === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                {v}
+              </button>
+            ))}
+            {dentalHx === "+" && <MultiCheck options={["발치", "임플란트"]} values={dentalDetails} onChange={setDentalDetails} />}
           </div>
+          {dentalHx === "+" && (
+            <input className="input" placeholder="기타 (선택)" value={dentalEtc} onChange={(e) => setDentalEtc(e.target.value)} />
+          )}
         </div>
       </details>
 
@@ -668,14 +707,11 @@ export default function NotifyPage() {
               <option value="주">주</option>
             </select>
             <span className="text-sm text-slate-600">전부터</span>
+            <button className="btn-outline !px-2 !py-1 text-xs ml-auto" onClick={autoGenerateHx} type="button">⚡ 문장 자동완성</button>
           </div>
-          <div className="flex items-center justify-between">
-            <label className="label mb-0">병력 (hx)</label>
-            <button className="btn-outline !px-2 !py-1 text-xs" onClick={autoGenerateHx} type="button">⚡ 문장 자동완성</button>
-          </div>
-          <textarea className="input min-h-[70px]" placeholder="증상 경과 및 hx" value={hx} onChange={(e) => setHx(e.target.value)} />
+          <textarea className="input min-h-[60px]" placeholder="증상 경과 및 hx (증상 내용을 포함해서 서술하면 됩니다)" value={hx} onChange={(e) => setHx(e.target.value)} />
           <div>
-            <label className="label">증상</label>
+            <label className="label">증상 (hx 자동완성 및 위험도 판단용)</label>
             <MultiCheck options={symptomOptions} values={symptoms} onChange={setSymptoms} />
           </div>
           <div className="w-40">
@@ -685,172 +721,199 @@ export default function NotifyPage() {
         </div>
       </details>
 
-      {/* Airway 평가 (항상 표시, 4개 항목) */}
-      <section className="card space-y-1">
-        <h2 className="font-medium text-slate-700 mb-2">Airway 평가 (모든 진단에서 확인)</h2>
-        <Toggle label="Larynx swelling" value={larynxSwelling} onChange={setLarynxSwelling} />
-        <Toggle label="Epiglottis swelling" value={epiglottisSwelling} onChange={setEpiglottisSwelling} />
-        <div className="flex items-center justify-between py-1.5">
+      {/* Airway 평가 (항상 표시, 콤팩트) */}
+      <section className="card space-y-0">
+        <h2 className="font-medium text-slate-700 mb-1">Airway 평가 (모든 진단에서 확인)</h2>
+        <div className="grid grid-cols-2 gap-x-6">
+          <Toggle label="Larynx swelling" value={larynxSwelling} onChange={setLarynxSwelling} />
+          <Toggle label="Epiglottis swelling" value={epiglottisSwelling} onChange={setEpiglottisSwelling} />
+        </div>
+        <div className="field-row">
           <span className="text-sm text-slate-700">TVC 확인</span>
           <div className="flex gap-1">
             {[{ v: "visible", label: "확인됨" }, { v: "not_visible", label: "확인 안됨" }].map((o) => (
-              <button type="button" key={o.v} onClick={() => setTvcVisible(tvcVisible === o.v ? "" : (o.v as any))} className={`px-3 py-1.5 rounded-md text-xs border ${tvcVisible === o.v ? "bg-red-600 text-white border-red-600" : "border-slate-300 text-slate-600"}`}>
+              <button type="button" key={o.v} onClick={() => setTvcVisible(tvcVisible === o.v ? "" : (o.v as any))} className={`px-2.5 py-1 rounded-md text-xs border ${tvcVisible === o.v ? "bg-red-600 text-white border-red-600" : "border-slate-300 text-slate-600"}`}>
                 {o.label}
               </button>
             ))}
           </div>
         </div>
-        <div className="flex items-center justify-between py-1.5">
+        <div className="field-row">
           <span className="text-sm text-slate-700">Vocal cord movement</span>
           <div className="flex gap-1">
             {[{ v: "intact", label: "Intact" }, { v: "paresis", label: "Paresis" }, { v: "palsy", label: "Palsy" }].map((o) => (
-              <button type="button" key={o.v} onClick={() => setVocalCordMovement(vocalCordMovement === o.v ? "" : (o.v as any))} className={`px-3 py-1.5 rounded-md text-xs border ${vocalCordMovement === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+              <button type="button" key={o.v} onClick={() => setVocalCordMovement(vocalCordMovement === o.v ? "" : (o.v as any))} className={`px-2.5 py-1 rounded-md text-xs border ${vocalCordMovement === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
                 {o.label}
               </button>
             ))}
-          </div>
-        </div>
-        {(vocalCordMovement === "paresis" || vocalCordMovement === "palsy") && (
-          <div className="flex items-center justify-between py-1.5">
-            <span className="text-sm text-slate-600">방향</span>
-            <div className="flex gap-1">
-              {(["Rt", "Lt", "Bilateral"] as const).map((s) => (
-                <button type="button" key={s} onClick={() => setVocalCordSide(vocalCordSide === s ? "" : s)} className={`px-3 py-1 rounded-md text-xs border ${vocalCordSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Pharynx/Tonsil - 해당 진단에서만 */}
-      {showPharynx && (
-        <details className="acc" open={openSections.pharynx} onToggle={(e) => setOpenSections((p) => ({ ...p, pharynx: (e.target as HTMLDetailsElement).open }))}>
-          <summary>Pharynx / Tonsil 소견</summary>
-          <div className="acc-body">
-            <MultiCheck options={["Enlargement", "Injection", "Whitish patch", "With ulceration", "Mass", "s/p tonsillectomy state"]} values={tonsilFindings} onChange={setTonsilFindings} />
-            <Toggle label="Peritonsillar bulging" value={ptBulging} onChange={setPtBulging} />
-            {ptBulging && ptBulging !== "-" && (
-              <div className="flex items-center gap-2 py-1.5 border-b border-slate-100">
-                <span className="text-sm text-slate-600">Uvula deviation</span>
-                {(["Lt", "Rt"] as const).map((s) => (
-                  <button type="button" key={s} onClick={() => setUvulaDeviation(uvulaDeviation === s ? "" : s)} className={`px-3 py-1 rounded-md text-xs border ${uvulaDeviation === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+            {(vocalCordMovement === "paresis" || vocalCordMovement === "palsy") && (
+              <div className="flex gap-1 ml-1">
+                {(["Rt", "Lt", "Bilateral"] as const).map((s) => (
+                  <button type="button" key={s} onClick={() => setVocalCordSide(vocalCordSide === s ? "" : s)} className={`px-2 py-1 rounded-md text-xs border ${vocalCordSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
                     {s}
                   </button>
                 ))}
               </div>
             )}
-            <Toggle label="Lateral pharyngeal wall swelling" value={lateralWallSwelling} onChange={setLateralWallSwelling} />
+          </div>
+        </div>
+        {showAirwayFreeText && (
+          <div className="pt-2">
+            <label className="label">추가 소견 (자유 기술, 예: AE fold swelling, epiglottic cyst)</label>
+            <input className="input" placeholder="자유롭게 기술" value={airwayExtraFindings} onChange={(e) => setAirwayExtraFindings(e.target.value)} />
+          </div>
+        )}
+      </section>
+
+      {/* Pharynx/Tonsil */}
+      {showPharynx && (
+        <details className="acc" open={openSections.pharynx} onToggle={(e) => setOpenSections((p) => ({ ...p, pharynx: (e.target as HTMLDetailsElement).open }))}>
+          <summary>Pharynx / Tonsil 소견</summary>
+          <div className="acc-body">
+            <MultiCheck options={["Enlargement", "Injection", "Whitish patch", "With ulceration", "Mass", "s/p tonsillectomy state"]} values={tonsilFindings} onChange={setTonsilFindings} />
+            <div className="field-row">
+              <span className="text-sm text-slate-700">Peritonsillar bulging</span>
+              <div className="flex gap-1 items-center">
+                {(["-", "±", "+"] as const).map((v) => (
+                  <button type="button" key={v} onClick={() => setPtBulging(ptBulging === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${ptBulging === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                    {v}
+                  </button>
+                ))}
+                <SideChips value={ptBulgingSide} onChange={setPtBulgingSide} />
+              </div>
+            </div>
+            {ptBulging && ptBulging !== "-" && (
+              <div className="field-row">
+                <span className="text-sm text-slate-600">Uvula deviation</span>
+                <div className="flex gap-1">
+                  {(["Lt", "Rt"] as const).map((s) => (
+                    <button type="button" key={s} onClick={() => setUvulaDeviation(uvulaDeviation === s ? "" : s)} className={`px-2.5 py-1 rounded-md text-xs border ${uvulaDeviation === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="field-row">
+              <span className="text-sm text-slate-700">Lateral pharyngeal wall swelling</span>
+              <div className="flex gap-1 items-center">
+                {(["-", "±", "+"] as const).map((v) => (
+                  <button type="button" key={v} onClick={() => setLateralWallSwelling(lateralWallSwelling === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${lateralWallSwelling === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                    {v}
+                  </button>
+                ))}
+                <SideChips value={lateralWallSide} onChange={setLateralWallSide} />
+              </div>
+            </div>
           </div>
         </details>
       )}
 
-      {/* Lymph node - 해당 진단에서만 */}
+      {/* Lymph node */}
       {showLymphNode && (
         <details className="acc" open={openSections.lymphNode} onToggle={(e) => setOpenSections((p) => ({ ...p, lymphNode: (e.target as HTMLDetailsElement).open }))}>
           <summary>Lymph Node 소견</summary>
           <div className="acc-body">
-            <div>
-              <label className="label">Location</label>
-              <div className="flex gap-2">
-                {(["Rt", "Lt", "Bilateral"] as const).map((s) => (
-                  <button type="button" key={s} onClick={() => setLnSide(lnSide === s ? "" : s)} className={`chip border ${lnSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                    {s}
-                  </button>
-                ))}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Location</label>
+                <div className="flex gap-2">
+                  {(["Rt", "Lt", "Bilateral"] as const).map((s) => (
+                    <button type="button" key={s} onClick={() => setLnSide(lnSide === s ? "" : s)} className={`chip border ${lnSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="label">Size</label>
+                <input className="input" placeholder="예: about 2cm size" value={lnSizeText} onChange={(e) => setLnSizeText(e.target.value)} />
               </div>
             </div>
             <div>
               <label className="label">Level</label>
               <MultiCheck options={["I", "II", "III", "IV", "V", "VI"]} values={lnLevel} onChange={setLnLevel} />
             </div>
-            <div>
-              <label className="label">Size</label>
-              <input className="input" placeholder="예: about 2cm size" value={lnSizeText} onChange={(e) => setLnSizeText(e.target.value)} />
-            </div>
           </div>
         </details>
       )}
 
-      {/* 염증 징후 - 해당 진단에서만, -/+ 만 */}
+      {/* 염증 징후 */}
       {showInflammatory && (
         <details className="acc" open={openSections.inflammatory} onToggle={(e) => setOpenSections((p) => ({ ...p, inflammatory: (e.target as HTMLDetailsElement).open }))}>
           <summary>염증 및 감염 징후</summary>
-          <div className="acc-body">
-            <Toggle label="Tenderness (압통)" value={tenderness} onChange={setTenderness} options={["-", "+"]} />
-            <Toggle label="Erythema (발적)" value={erythema} onChange={setErythema} options={["-", "+"]} />
-            <Toggle label="Heating sensation (열감)" value={heating} onChange={setHeating} options={["-", "+"]} />
+          <div className="acc-body grid grid-cols-2 gap-x-6">
+            <Toggle label="Tenderness" value={tenderness} onChange={setTenderness} options={["-", "+"]} />
+            <Toggle label="Erythema" value={erythema} onChange={setErythema} options={["-", "+"]} />
+            <Toggle label="Heating sensation" value={heating} onChange={setHeating} options={["-", "+"]} />
             <Toggle label="Pus" value={pus} onChange={setPus} options={["-", "+"]} />
           </div>
         </details>
       )}
 
-      {/* 타액선 - 해당 진단에서만 */}
+      {/* 타액선 */}
       {showSalivary && (
         <details className="acc" open={openSections.salivary} onToggle={(e) => setOpenSections((p) => ({ ...p, salivary: (e.target as HTMLDetailsElement).open }))}>
           <summary>타액선 평가 (Parotid / SMG)</summary>
           <div className="acc-body">
-            <div>
-              <label className="label">Parotid gland - Side</label>
-              <div className="flex gap-2">
-                {["Rt", "Lt", "Both"].map((s) => (
-                  <button type="button" key={s} onClick={() => setParotidSide(parotidSide === s ? "" : s)} className={`chip border ${parotidSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                    {s}
-                  </button>
-                ))}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Parotid - Side</label>
+                <div className="flex gap-2">
+                  {["Rt", "Lt", "Both"].map((s) => (
+                    <button type="button" key={s} onClick={() => setParotidSide(parotidSide === s ? "" : s)} className={`chip border ${parotidSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="label">Stensen's duct orifice</label>
+                <div className="flex gap-2">
+                  {["Clear", "Pus discharge (+)"].map((o) => (
+                    <button type="button" key={o} onClick={() => setParotidDuct(parotidDuct === o ? "" : o)} className={`chip border ${parotidDuct === o ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                      {o}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div>
-              <label className="label">Parotid gland - Status</label>
-              <MultiCheck options={["WNL", "Swelling", "Tenderness", "Mass"]} values={parotidStatus} onChange={setParotidStatus} />
-            </div>
-            <div>
-              <label className="label">Stensen's duct orifice</label>
-              <div className="flex gap-2">
-                {["Clear", "Pus discharge (+)"].map((o) => (
-                  <button type="button" key={o} onClick={() => setParotidDuct(parotidDuct === o ? "" : o)} className={`chip border ${parotidDuct === o ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                    {o}
-                  </button>
-                ))}
+            <MultiCheck options={["WNL", "Swelling", "Tenderness", "Mass"]} values={parotidStatus} onChange={setParotidStatus} />
+            <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-2">
+              <div>
+                <label className="label">SMG - Side</label>
+                <div className="flex gap-2">
+                  {["Rt", "Lt", "Both"].map((s) => (
+                    <button type="button" key={s} onClick={() => setSmgSide(smgSide === s ? "" : s)} className={`chip border ${smgSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="label">Wharton's duct orifice</label>
+                <div className="flex gap-2">
+                  {["Clear", "Pus discharge (+)"].map((o) => (
+                    <button type="button" key={o} onClick={() => setSmgDuct(smgDuct === o ? "" : o)} className={`chip border ${smgDuct === o ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                      {o}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="border-t border-slate-100 pt-3">
-              <label className="label">SMG - Side</label>
-              <div className="flex gap-2">
-                {["Rt", "Lt", "Both"].map((s) => (
-                  <button type="button" key={s} onClick={() => setSmgSide(smgSide === s ? "" : s)} className={`chip border ${smgSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="label">SMG - Status</label>
-              <MultiCheck options={["WNL", "Swelling", "Tenderness", "Mass"]} values={smgStatus} onChange={setSmgStatus} />
-            </div>
-            <div>
-              <label className="label">Wharton's duct orifice</label>
-              <div className="flex gap-2">
-                {["Clear", "Pus discharge (+)"].map((o) => (
-                  <button type="button" key={o} onClick={() => setSmgDuct(smgDuct === o ? "" : o)} className={`chip border ${smgDuct === o ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                    {o}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <MultiCheck options={["WNL", "Swelling", "Tenderness", "Mass"]} values={smgStatus} onChange={setSmgStatus} />
           </div>
         </details>
       )}
 
-      {/* 구강저 - 해당 진단에서만 */}
+      {/* 구강저 */}
       {showOralFocus && (
         <details className="acc" open={openSections.oralFocus} onToggle={(e) => setOpenSections((p) => ({ ...p, oralFocus: (e.target as HTMLDetailsElement).open }))}>
           <summary>구강 / 구강저 (원발 병소 확인)</summary>
           <div className="acc-body">
             <MultiCheck options={["WNL", "Poor dental hygiene", "Dental caries"]} values={oralFocus} onChange={setOralFocus} />
             {oralFocus.includes("Dental caries") && (
-              <input className="input mt-2" placeholder="몇 번 치아인지 (예: #16, #46)" value={dentalCariesTeeth} onChange={(e) => setDentalCariesTeeth(e.target.value)} />
+              <input className="input" placeholder="몇 번 치아인지 (예: #16, #46)" value={dentalCariesTeeth} onChange={(e) => setDentalCariesTeeth(e.target.value)} />
             )}
           </div>
         </details>
@@ -887,7 +950,7 @@ export default function NotifyPage() {
         <div className="acc-body">
           <div>
             <label className="label">Lab 결과 붙여넣기 (자동 인식)</label>
-            <textarea className="input min-h-[80px] font-mono text-xs" placeholder="예: WBC 12200 CRP 26.59 AST 88 ALT 56 eGFR 30" value={labText} onChange={(e) => setLabText(e.target.value)} />
+            <textarea className="input min-h-[70px] font-mono text-xs" placeholder="예: WBC 12200 CRP 26.59 AST 88 ALT 56 eGFR 30" value={labText} onChange={(e) => setLabText(e.target.value)} />
           </div>
           {parsedLabs.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -904,7 +967,7 @@ export default function NotifyPage() {
               <select className="input" value={ctReadType} onChange={(e) => setCtReadType(e.target.value as any)}>
                 <option value="구두판독">구두판독</option>
                 <option value="정식판독">정식판독</option>
-                <option value="판독 못받음">판독 못받음</option>
+                <option value="추후 판독확인 필요">추후 판독확인 필요</option>
               </select>
             </div>
             <div className="col-span-2">
@@ -920,31 +983,27 @@ export default function NotifyPage() {
         <summary>치료 계획 / 입원</summary>
         <div className="acc-body">
           <div>
-            <label className="label">입원 사유 (복수 선택)</label>
-            <MultiCheck options={["IV anti", "급성기 증상조절", "Nutritional support", "Airway close monitoring", "수술적 치료"]} values={treatReasons} onChange={setTreatReasons} />
+            <label className="label">입원 사유</label>
+            <MultiCheck options={["IV anti", "급성기 증상조절", "Nutritional support", "Airway close monitoring", "수술적 치료", "Pain control 등 conservative tx."]} values={treatReasons} onChange={setTreatReasons} />
           </div>
-          <textarea className="input min-h-[50px]" placeholder="추가 특이사항 (자유 기술)" value={extraNote} onChange={(e) => setExtraNote(e.target.value)} />
+          <textarea className="input min-h-[45px]" placeholder="추가 특이사항 (자유 기술)" value={extraNote} onChange={(e) => setExtraNote(e.target.value)} />
 
-          <div className="border-t border-slate-100 pt-3">
-            <label className="label">식이</label>
-            <div className="flex gap-2 mb-2">
-              {(["NPO", "SIPS", "일반식이"] as const).map((d) => (
-                <button type="button" key={d} onClick={() => setDietType(dietType === d ? "" : d)} className={`chip border ${dietType === d ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                  {d}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-600">TPN 사용</span>
-              {(["-", "+"] as const).map((v) => (
-                <button type="button" key={v} onClick={() => setTpn(tpn === v ? "" : v)} className={`w-9 h-8 rounded-md text-xs font-semibold border ${tpn === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
-                  {v}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 border-t border-slate-100 pt-2 flex-wrap">
+            <span className="label mb-0 whitespace-nowrap">식이</span>
+            {(["NPO", "SIPS", "일반식이"] as const).map((d) => (
+              <button type="button" key={d} onClick={() => setDietType(dietType === d ? "" : d)} className={`chip border ${dietType === d ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                {d}
+              </button>
+            ))}
+            <span className="text-sm text-slate-500 ml-3">TPN</span>
+            {(["-", "+"] as const).map((v) => (
+              <button type="button" key={v} onClick={() => setTpn(tpn === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${tpn === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                {v}
+              </button>
+            ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
+          <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-2">
             <div>
               <label className="label">담당 교수님</label>
               <select className="input" value={professorName} onChange={(e) => setProfessorName(e.target.value)}>
@@ -955,9 +1014,9 @@ export default function NotifyPage() {
               <label className="label">Antibiotics plan</label>
               <select className="input" value={antiPlanType} onChange={(e) => setAntiPlanType(e.target.value as any)}>
                 <option value="">선택</option>
-                <option value="double1">Double anti - Cefoperazone/Sulbactam + Clindamycin</option>
-                <option value="double2">Double anti - Ampicillin/Sulbactam + Clindamycin</option>
-                <option value="triple">Triple anti - Ampicillin/Sulbactam + Clindamycin + Ceftriaxone</option>
+                <option value="double1">Double - Cefoperazone/Sulbactam + Clindamycin</option>
+                <option value="double2">Double - Ampicillin/Sulbactam + Clindamycin</option>
+                <option value="triple">Triple - Ampicillin/Sulbactam + Clindamycin + Ceftriaxone</option>
                 <option value="continue_previous">이전 처방력 있을 시 동일 Abx 유지</option>
                 <option value="none">Abx 사용하지 않음</option>
                 <option value="other">기타 (직접 기술)</option>
@@ -967,34 +1026,27 @@ export default function NotifyPage() {
           {antiPlanType === "other" && (
             <input className="input" placeholder="예: 감염내과 협진 답변대로 ~" value={antiPlanOther} onChange={(e) => setAntiPlanOther(e.target.value)} />
           )}
-          <div className="grid grid-cols-2 gap-3 items-end">
-            <div>
-              <label className="label">Dexa 사용</label>
-              <div className="flex gap-2">
-                {(["-", "+"] as const).map((v) => (
-                  <button type="button" key={v} onClick={() => setDexa(dexa === v ? "" : v)} className={`w-10 h-9 rounded-md text-xs font-semibold border ${dexa === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="label mb-0 whitespace-nowrap">Dexa</span>
+            {(["-", "+"] as const).map((v) => (
+              <button type="button" key={v} onClick={() => setDexa(dexa === v ? "" : v)} className={`w-9 h-8 rounded-md text-xs font-semibold border ${dexa === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                {v}
+              </button>
+            ))}
             {dexa === "+" && (
-              <div>
-                <label className="label">투여 빈도</label>
-                <select className="input" value={dexaFreq} onChange={(e) => setDexaFreq(e.target.value)}>
-                  <option value="BID">1앰플 BID</option>
-                  <option value="QD">1앰플 QD</option>
-                </select>
-              </div>
+              <select className="input !w-auto !py-1" value={dexaFreq} onChange={(e) => setDexaFreq(e.target.value)}>
+                <option value="BID">1앰플 BID</option>
+                <option value="QD">1앰플 QD</option>
+              </select>
             )}
           </div>
           <div>
             <label className="label">Care level</label>
             <MultiCheck options={["ICU care", "처치실 care", "일반병실 care"]} values={careLevel} onChange={setCareLevel} />
           </div>
-          <div className="border-t border-slate-100 pt-3">
+          <div className="border-t border-slate-100 pt-2">
             <label className="label">환자/보호자 설명</label>
-            <div className="space-y-1">
+            <div className="flex flex-col gap-1">
               <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                 <input type="checkbox" checked={explainDeathRisk === "+"} onChange={(e) => setExplainDeathRisk(e.target.checked ? "+" : "")} />
                 Sepsis / airway obstruction 진행으로 인한 사망 가능성 설명
@@ -1004,15 +1056,13 @@ export default function NotifyPage() {
                 필요시 tracheostomy / I&D 시행 가능성 설명
               </label>
             </div>
-            <div className="mt-2">
-              <label className="label">동의서</label>
-              <div className="flex gap-2">
-                {[{ v: "temp", label: "동의서 임시저장" }, { v: "signed", label: "동의서 서명완료" }].map((o) => (
-                  <button type="button" key={o.v} onClick={() => setConsentStatus(consentStatus === o.v ? "" : (o.v as any))} className={`chip border ${consentStatus === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                    {o.label}
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-slate-600">동의서</span>
+              {[{ v: "temp", label: "임시저장" }, { v: "signed", label: "서명완료" }].map((o) => (
+                <button type="button" key={o.v} onClick={() => setConsentStatus(consentStatus === o.v ? "" : (o.v as any))} className={`chip border ${consentStatus === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                  {o.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
