@@ -149,39 +149,159 @@ function FreeformTab() {
 
 const ECHO_OPTIONS = ["Isoechoic", "Hypoechoic", "Markedly hypoechoic", "Hyperechoic", "Heterogeneous"];
 const MARGIN_OPTIONS = ["Smooth", "Irregular", "Spiculated", "Lobulated"];
-const COMPOSITION_OPTIONS = ["Solid", "Predominantly solid", "Predominantly cystic", "Cystic", "Spongiform"];
-const KTIRADS_OPTIONS = [
-  { v: "kt2", label: "K-TIRADS 2 (benign)" },
-  { v: "kt3", label: "K-TIRADS 3 (low suspicion)" },
-  { v: "kt4", label: "K-TIRADS 4 (intermediate suspicion)" },
-  { v: "kt5", label: "K-TIRADS 5 (high suspicion)" },
+
+// K-TIRADS 플로우차트의 4개 구성(composition) 분류에 그대로 대응시킵니다.
+const COMPOSITION_CATEGORIES = [
+  { v: "solid_hypo", label: "Solid, hypoechoic" },
+  { v: "solid_isohyper", label: "Solid, isoechoic/hyperechoic" },
+  { v: "partial_cystic", label: "Partially cystic" },
+  { v: "spongiform", label: "Spongiform" },
+  { v: "partial_cystic_comet", label: "Partially cystic with intracystic comet-tail artifact" },
+  { v: "pure_cyst", label: "Pure cyst" },
+] as const;
+type CompositionCategory = (typeof COMPOSITION_CATEGORIES)[number]["v"];
+
+const ECHOGENIC_FOCI_OPTIONS = [
+  "Punctate echogenic foci",
+  "Macrocalcification",
+  "Intracystic echogenic foci with comet-tail artifacts",
+  "Rim calcification",
 ];
+
+// K-TIRADS 3개 suspicious US feature (공식 기준)
+const SUSPICIOUS_FEATURE_KEYS = ["microcalcification", "tallerThanWide", "spiculatedMargin"] as const;
+type SuspiciousFeatureKey = (typeof SUSPICIOUS_FEATURE_KEYS)[number];
+const SUSPICIOUS_FEATURE_LABEL: Record<SuspiciousFeatureKey, string> = {
+  microcalcification: "Microcalcification",
+  tallerThanWide: "Taller than wide",
+  spiculatedMargin: "Spiculated / microlobulated margin",
+};
+
+// 공식 K-TIRADS flow chart 그대로 구현
+function calcKTIRADS(category: CompositionCategory, suspiciousCount: number) {
+  if (category === "spongiform" || category === "partial_cystic_comet" || category === "pure_cyst") {
+    return { kt: "K-TIRADS 2 (benign)", rec: "No biopsy" };
+  }
+  if (category === "solid_hypo") {
+    return suspiciousCount > 0
+      ? { kt: "K-TIRADS 5 (high suspicion)", rec: "Biopsy recommended if ≥ 1.0 cm" }
+      : { kt: "K-TIRADS 4 (intermediate suspicion)", rec: "Biopsy recommended if ≥ 1.0 cm" };
+  }
+  // solid_isohyper 또는 partial_cystic
+  return suspiciousCount > 0
+    ? { kt: "K-TIRADS 4 (intermediate suspicion)", rec: "Biopsy recommended if ≥ 1.0 cm" }
+    : { kt: "K-TIRADS 3 (low suspicion)", rec: "Biopsy recommended if ≥ 1.5 cm" };
+}
+
+const GLAND_STATUS_OPTIONS = ["언급 안함", "Normal", "Mass"] as const;
+
+function GlandSection({
+  title,
+  status,
+  setStatus,
+  side,
+  setSide,
+  desc,
+  setDesc,
+}: {
+  title: string;
+  status: (typeof GLAND_STATUS_OPTIONS)[number];
+  setStatus: (v: (typeof GLAND_STATUS_OPTIONS)[number]) => void;
+  side: string;
+  setSide: (v: string) => void;
+  desc: string;
+  setDesc: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="label">{title}</label>
+      <div className="flex gap-2">
+        {GLAND_STATUS_OPTIONS.map((o) => (
+          <button
+            type="button"
+            key={o}
+            onClick={() => setStatus(o)}
+            className={`chip border ${status === o ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+      {status === "Mass" && (
+        <div className="grid grid-cols-3 gap-2">
+          <select className="input" value={side} onChange={(e) => setSide(e.target.value)}>
+            <option value="Rt">Rt</option>
+            <option value="Lt">Lt</option>
+            <option value="Both">Both</option>
+          </select>
+          <input className="input col-span-2" placeholder="소견 (예: 1.2cm hypoechoic mass)" value={desc} onChange={(e) => setDesc(e.target.value)} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StructuredTab() {
   const [location, setLocation] = useState("Rt");
   const [sizeA, setSizeA] = useState("");
   const [sizeB, setSizeB] = useState("");
   const [sizeC, setSizeC] = useState("");
-  const [composition, setComposition] = useState(COMPOSITION_OPTIONS[0]);
+  const [compositionCategory, setCompositionCategory] = useState<CompositionCategory>("solid_hypo");
   const [echo, setEcho] = useState(ECHO_OPTIONS[0]);
   const [margin, setMargin] = useState(MARGIN_OPTIONS[0]);
-  const [tallerThanWide, setTallerThanWide] = useState(false);
-  const [calcification, setCalcification] = useState<"none" | "punctate" | "rim">("none");
-  const [kt, setKt] = useState("kt3");
+  const [echogenicFoci, setEchogenicFoci] = useState<string[]>([]);
+  const [suspicious, setSuspicious] = useState<Record<SuspiciousFeatureKey, boolean>>({
+    microcalcification: false,
+    tallerThanWide: false,
+    spiculatedMargin: false,
+  });
   const [lnStatus, setLnStatus] = useState<"none" | "benign" | "suspicious">("none");
+
+  // Parotid / SMG
+  const [parotidStatus, setParotidStatus] = useState<(typeof GLAND_STATUS_OPTIONS)[number]>("언급 안함");
+  const [parotidSide, setParotidSide] = useState("Rt");
+  const [parotidDesc, setParotidDesc] = useState("");
+  const [smgStatus, setSmgStatus] = useState<(typeof GLAND_STATUS_OPTIONS)[number]>("언급 안함");
+  const [smgSide, setSmgSide] = useState("Rt");
+  const [smgDesc, setSmgDesc] = useState("");
+
+  // FNAC
+  const [fnac, setFnac] = useState<"" | "-" | "+">("");
+  const [fnacSite, setFnacSite] = useState("");
+
   const [output, setOutput] = useState("");
 
+  function toggleEchogenicFocus(opt: string) {
+    setEchogenicFoci((prev) => (prev.includes(opt) ? prev.filter((v) => v !== opt) : [...prev, opt]));
+  }
+
   function generate() {
+    const suspiciousCount = SUSPICIOUS_FEATURE_KEYS.filter((k) => suspicious[k]).length;
+    const isBenignCategory =
+      compositionCategory === "spongiform" || compositionCategory === "partial_cystic_comet" || compositionCategory === "pure_cyst";
+
+    if (!isBenignCategory && suspiciousCount === 0) {
+      const ok = confirm(
+        "Suspicious US feature(microcalcification / taller than wide / spiculated·microlobulated margin)가 하나도 선택되지 않았습니다.\n정말 없는 것이 맞습니까?"
+      );
+      if (!ok) return;
+    }
+
+    const { kt, rec } = calcKTIRADS(compositionCategory, suspiciousCount);
+    const compositionLabel = COMPOSITION_CATEGORIES.find((c) => c.v === compositionCategory)?.label ?? "";
     const size = sizeA && sizeB && sizeC ? `${sizeA} x ${sizeB} x ${sizeC} cm` : "";
-    const calcText =
-      calcification === "punctate" ? ", punctate echogenic foci (+)" : calcification === "rim" ? ", rim calcification (+)" : "";
-    const tallerText = tallerThanWide ? ", taller than wide" : "";
-    const ktLabel = KTIRADS_OPTIONS.find((k) => k.v === kt)?.label ?? "";
 
     const lines: string[] = [];
     lines.push(`${location} thyroid nodule${size ? `, size: ${size}` : ""}`);
-    lines.push(`- ${composition}, ${echo}, ${margin} margin${tallerText}${calcText}`);
-    lines.push(`- ${ktLabel}`);
+    lines.push(`- ${compositionLabel}, ${echo}, ${margin} margin`);
+
+    if (echogenicFoci.length) {
+      lines.push(`- ${echogenicFoci.join(", ")}`);
+    }
+
+    const suspiciousLabels = SUSPICIOUS_FEATURE_KEYS.filter((k) => suspicious[k]).map((k) => SUSPICIOUS_FEATURE_LABEL[k]);
+    lines.push(`- Suspicious US features: ${suspiciousLabels.length ? suspiciousLabels.join(", ") : "none"}`);
+    lines.push(`- ${kt}, rec) ${rec}`);
 
     if (lnStatus === "benign") {
       lines.push("");
@@ -191,6 +311,23 @@ function StructuredTab() {
       lines.push("");
       lines.push("Enlarged lymph nodes in neck level {{cursor}}");
       lines.push("- round to oval shape, fatty hilum not clearly identified, heterogeneous echogenicity");
+    }
+
+    if (parotidStatus !== "언급 안함") {
+      lines.push("");
+      if (parotidStatus === "Normal") {
+        lines.push("Parotid gland: normal, no mass");
+      } else {
+        lines.push(`Parotid gland: ${parotidSide} mass${parotidDesc ? ` - ${parotidDesc}` : ""}`);
+      }
+    }
+    if (smgStatus !== "언급 안함") {
+      lines.push(smgStatus === "Normal" ? "SMG (submandibular gland): normal, no mass" : `SMG (submandibular gland): ${smgSide} mass${smgDesc ? ` - ${smgDesc}` : ""}`);
+    }
+
+    if (fnac) {
+      lines.push("");
+      lines.push(`US-guided FNAC (${fnac})${fnacSite ? ` from the ${fnacSite}` : ""}${fnac === "+" ? "\n- No immediate complication" : ""}`);
     }
 
     const header = `* Neck / Thyroid US [OL] <${getFormattedDate()}>\n\n`;
@@ -223,16 +360,18 @@ function StructuredTab() {
             </div>
           </div>
         </div>
+
         <div>
-          <label className="label">Composition</label>
-          <select className="input" value={composition} onChange={(e) => setComposition(e.target.value)}>
-            {COMPOSITION_OPTIONS.map((o) => (
-              <option key={o} value={o}>
-                {o}
+          <label className="label">Composition (K-TIRADS 분류)</label>
+          <select className="input" value={compositionCategory} onChange={(e) => setCompositionCategory(e.target.value as CompositionCategory)}>
+            {COMPOSITION_CATEGORIES.map((o) => (
+              <option key={o.v} value={o.v}>
+                {o.label}
               </option>
             ))}
           </select>
         </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Echogenicity</label>
@@ -245,7 +384,7 @@ function StructuredTab() {
             </select>
           </div>
           <div>
-            <label className="label">Margin</label>
+            <label className="label">Margin (서술용)</label>
             <select className="input" value={margin} onChange={(e) => setMargin(e.target.value)}>
               {MARGIN_OPTIONS.map((o) => (
                 <option key={o} value={o}>
@@ -255,39 +394,39 @@ function StructuredTab() {
             </select>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <input type="checkbox" checked={tallerThanWide} onChange={(e) => setTallerThanWide(e.target.checked)} id="ttw" />
-          <label htmlFor="ttw" className="text-sm text-slate-600">Taller than wide</label>
-        </div>
+
         <div>
-          <label className="label">석회화</label>
-          <div className="flex gap-2">
-            {[
-              { v: "none", label: "없음" },
-              { v: "punctate", label: "Punctate echogenic foci" },
-              { v: "rim", label: "Rim calcification" },
-            ].map((o) => (
+          <label className="label">Echogenic foci (복수 선택)</label>
+          <div className="flex flex-wrap gap-2">
+            {ECHOGENIC_FOCI_OPTIONS.map((opt) => (
               <button
                 type="button"
-                key={o.v}
-                onClick={() => setCalcification(o.v as any)}
-                className={`chip border ${calcification === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
+                key={opt}
+                onClick={() => toggleEchogenicFocus(opt)}
+                className={`chip border ${echogenicFoci.includes(opt) ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
               >
-                {o.label}
+                {opt}
               </button>
             ))}
           </div>
         </div>
-        <div>
-          <label className="label">K-TIRADS</label>
-          <select className="input" value={kt} onChange={(e) => setKt(e.target.value)}>
-            {KTIRADS_OPTIONS.map((o) => (
-              <option key={o.v} value={o.v}>
-                {o.label}
-              </option>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <label className="label text-amber-700">Suspicious US features (K-TIRADS 산출 기준, 3개)</label>
+          <div className="flex flex-col gap-1">
+            {SUSPICIOUS_FEATURE_KEYS.map((k) => (
+              <label key={k} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={suspicious[k]}
+                  onChange={(e) => setSuspicious((prev) => ({ ...prev, [k]: e.target.checked }))}
+                />
+                {SUSPICIOUS_FEATURE_LABEL[k]}
+              </label>
             ))}
-          </select>
+          </div>
         </div>
+
         <div>
           <label className="label">Lymph node</label>
           <div className="flex gap-2">
@@ -307,6 +446,52 @@ function StructuredTab() {
             ))}
           </div>
         </div>
+
+        <div className="border-t border-slate-100 pt-3 space-y-3">
+          <GlandSection
+            title="Parotid gland"
+            status={parotidStatus}
+            setStatus={setParotidStatus}
+            side={parotidSide}
+            setSide={setParotidSide}
+            desc={parotidDesc}
+            setDesc={setParotidDesc}
+          />
+          <GlandSection
+            title="SMG (submandibular gland)"
+            status={smgStatus}
+            setStatus={setSmgStatus}
+            side={smgSide}
+            setSide={setSmgSide}
+            desc={smgDesc}
+            setDesc={setSmgDesc}
+          />
+        </div>
+
+        <div className="border-t border-slate-100 pt-3">
+          <label className="label">FNAC 시행</label>
+          <div className="flex gap-2 items-center">
+            {(["", "-", "+"] as const).map((v) => (
+              <button
+                type="button"
+                key={v || "none"}
+                onClick={() => setFnac(v)}
+                className={`chip border ${fnac === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
+              >
+                {v === "" ? "언급 안함" : v}
+              </button>
+            ))}
+            {fnac && (
+              <input
+                className="input flex-1"
+                placeholder="시행 부위 (예: Rt thyroid nodule)"
+                value={fnacSite}
+                onChange={(e) => setFnacSite(e.target.value)}
+              />
+            )}
+          </div>
+        </div>
+
         <button className="btn" onClick={generate} type="button">
           생성하기
         </button>
