@@ -16,7 +16,23 @@ interface ImgRow {
   desc: string;
 }
 
-const PMH_OPTIONS = ["HTN", "DM", "Asthma", "Pul. Tb", "Dyslipidemia", "흡연(Smoker)", "음주(Alcohol)"];
+const PMH_DISEASE_OPTIONS = ["HTN", "DM", "Asthma", "Pul. Tb", "Dyslipidemia"];
+const PMH_SOCIAL_OPTIONS = ["흡연(Smoker)", "음주(Alcohol)"];
+
+const PTYPE_OPTIONS = [
+  { v: "post", label: "수술 후 환자" },
+  { v: "pre", label: "수술 전/미결정" },
+  { v: "mal", label: "Malignancy 여부 토론" },
+  { v: "adv", label: "다회 수술/재발" },
+] as const;
+
+// 환자 유형별로 다학제 준비 시 챙겨야 할 체크리스트 (요약문에는 포함되지 않음, 화면 확인용)
+const TODOS: Record<string, string[]> = {
+  post: ["병리결과 확인", "치과 진료 내역 (방사선 치료 대비)", "eGFR 및 기저질환 (CTx 신기능)", "NGS/PD-L1 등 유전자 검사"],
+  pre: ["조직검사 결과 확인", "PET, CT, MR 영상검사 확인", "치과 진료 내역 (방사선 치료 대비)", "eGFR 및 기저질환 (CTx 신기능)", "수술 날짜"],
+  mal: ["조직검사 결과 확인", "PET, CT, MR 영상검사 확인", "추가 검사(Chest CT 등) 필요성"],
+  adv: ["이전 병리결과 확인", "Advanced 현재 영상 평가", "이전 영상 자료와 비교 분석"],
+};
 
 function cleanSpaces(str: string) {
   if (!str) return "";
@@ -42,6 +58,45 @@ function formatImgDate(raw: string) {
 function sortKey(raw: string) {
   const num = raw.replace(/[^0-9]/g, "");
   return num.length >= 8 ? parseInt(num.substring(0, 8), 10) : 99999999;
+}
+
+// 날짜칸에 숫자 8자리를 입력하면 자동으로 "YYYY.MM.DD" 형식으로 바꿔줍니다.
+function autoFormatDateInput(raw: string) {
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (digits.length === 8) return digits;
+  return raw;
+}
+
+// Enter로 줄바꿈이 되는 자동 높이조절 textarea
+function AutoTextarea({
+  value,
+  onChange,
+  placeholder,
+  className = "",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <textarea
+      className={`input resize-none overflow-hidden ${className}`}
+      placeholder={placeholder}
+      value={value}
+      rows={1}
+      onChange={(e) => {
+        onChange(e.target.value);
+        e.target.style.height = "auto";
+        e.target.style.height = e.target.scrollHeight + "px";
+      }}
+      onInput={(e) => {
+        const el = e.currentTarget;
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+      }}
+    />
+  );
 }
 
 export default function MdtPage() {
@@ -75,6 +130,7 @@ export default function MdtPage() {
   const [egfr, setEgfr] = useState("");
   const [dental, setDental] = useState("");
   const [ptype, setPtype] = useState("");
+  const [todoChecks, setTodoChecks] = useState<Record<string, boolean>>({});
   const [surgRows, setSurgRows] = useState<SurgRow[]>([{ name: "", date: "", path: "" }]);
   const [imgRows, setImgRows] = useState<ImgRow[]>([
     { name: "PET-CT", date: "", desc: "" },
@@ -85,11 +141,16 @@ export default function MdtPage() {
 
   function resetForm() {
     setRegNo(""); setName(""); setSex(""); setAge(""); setDx(""); setCc(""); setOnset(""); setPi("");
-    setPmhChecks([]); setPmhEtc(""); setEgfr(""); setDental(""); setPtype("");
+    setPmhChecks([]); setPmhEtc(""); setEgfr(""); setDental(""); setPtype(""); setTodoChecks({});
     setSurgRows([{ name: "", date: "", path: "" }]);
     setImgRows([{ name: "PET-CT", date: "", desc: "" }, { name: "HN CT", date: "", desc: "" }, { name: "HN MRI", date: "", desc: "" }]);
     setSummary("");
     setLoadedId(null);
+  }
+
+  function selectPtype(v: string) {
+    setPtype(v);
+    setTodoChecks({});
   }
 
   function autoGeneratePI() {
@@ -260,14 +321,14 @@ export default function MdtPage() {
       <section className="card space-y-3">
         <h2 className="font-medium text-slate-700">1. 환자 인적사항 및 진단 정보</h2>
         <div className="grid grid-cols-4 gap-3">
-          <div><label className="label">등록번호</label><input className="input" value={regNo} onChange={(e) => setRegNo(e.target.value)} /></div>
-          <div><label className="label">이름</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div><label className="label">등록번호 (*목록 저장 필수)</label><input className="input" value={regNo} onChange={(e) => setRegNo(e.target.value)} /></div>
+          <div><label className="label">이름 (*목록 저장 필수)</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
           <div>
             <label className="label">성별</label>
             <select className="input" value={sex} onChange={(e) => setSex(e.target.value)}>
               <option value="">선택</option>
-              <option value="M">M</option>
-              <option value="F">F</option>
+              <option value="M">M (남성)</option>
+              <option value="F">F (여성)</option>
             </select>
           </div>
           <div><label className="label">나이</label><input className="input" value={age} onChange={(e) => setAge(e.target.value)} /></div>
@@ -277,22 +338,38 @@ export default function MdtPage() {
           <input className="input" placeholder="예: Tongue cancer" value={dx} onChange={(e) => setDx(e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><label className="label">주소증 (C/C)</label><input className="input" value={cc} onChange={(e) => setCc(e.target.value)} /></div>
-          <div><label className="label">Onset</label><input className="input" value={onset} onChange={(e) => setOnset(e.target.value)} /></div>
+          <div><label className="label">주소증 (C/C)</label><input className="input" placeholder="예: 우측 경부 종괴" value={cc} onChange={(e) => setCc(e.target.value)} /></div>
+          <div><label className="label">Onset</label><input className="input" placeholder="예: 2개월 전" value={onset} onChange={(e) => setOnset(e.target.value)} /></div>
         </div>
         <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <label className="label mb-0">현병력 (Present Illness)</label>
+            <label className="label mb-0">📝 현병력 (Present Illness)</label>
             <button className="btn-outline !px-2 !py-1 text-xs" onClick={autoGeneratePI} type="button">
               ⚡ 문장 자동 완성
             </button>
           </div>
-          <textarea className="input min-h-[60px]" value={pi} onChange={(e) => setPi(e.target.value)} />
+          <AutoTextarea
+            className="min-h-[50px]"
+            value={pi}
+            onChange={setPi}
+            placeholder="주소증/진단명 입력 후 자동 완성 버튼을 누르거나, 복잡한 히스토리가 있다면 직접 자유롭게 타이핑하세요..."
+          />
         </div>
         <div>
-          <label className="label">기저질환 및 사회력</label>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {PMH_OPTIONS.map((o) => (
+          <label className="label">기저질환 (Underlying Disease) 및 사회력</label>
+          <div className="flex flex-wrap items-center gap-2 mb-2 bg-slate-50 rounded-lg p-2.5">
+            {PMH_DISEASE_OPTIONS.map((o) => (
+              <button
+                type="button"
+                key={o}
+                onClick={() => setPmhChecks((prev) => (prev.includes(o) ? prev.filter((x) => x !== o) : [...prev, o]))}
+                className={`chip border ${pmhChecks.includes(o) ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
+              >
+                {o}
+              </button>
+            ))}
+            <span className="text-slate-300 px-1">|</span>
+            {PMH_SOCIAL_OPTIONS.map((o) => (
               <button
                 type="button"
                 key={o}
@@ -303,43 +380,72 @@ export default function MdtPage() {
               </button>
             ))}
           </div>
-          <input className="input" placeholder="기타 기저질환 직접 기입" value={pmhEtc} onChange={(e) => setPmhEtc(e.target.value)} />
+          <input
+            className="input"
+            placeholder="기타 기저질환 직접 기입 (예: Hepatitis, s/p cerebral hemorrhage 등)..."
+            value={pmhEtc}
+            onChange={(e) => setPmhEtc(e.target.value)}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3 bg-blue-50 rounded-lg p-3">
-          <div><label className="label">eGFR (신기능 / CTx 대비)</label><input className="input" value={egfr} onChange={(e) => setEgfr(e.target.value)} /></div>
-          <div><label className="label">치과 진료 내역 (RTx 대비)</label><input className="input" value={dental} onChange={(e) => setDental(e.target.value)} /></div>
+          <div><label className="label">🩸 eGFR (신기능 / CTx 대비)</label><input className="input" placeholder="예: 85.4 ml/min" value={egfr} onChange={(e) => setEgfr(e.target.value)} /></div>
+          <div><label className="label">🦷 치과 진료 내역 (RTx 대비)</label><input className="input" placeholder="예: 우측 하악 대구치 발치 완료" value={dental} onChange={(e) => setDental(e.target.value)} /></div>
         </div>
       </section>
 
       <section className="card space-y-2">
-        <h2 className="font-medium text-slate-700">2. 환자 유형</h2>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { v: "post", label: "수술 후 환자" },
-            { v: "pre", label: "수술 전/미결정" },
-            { v: "mal", label: "Malignancy 여부 토론" },
-            { v: "adv", label: "다회 수술/재발" },
-          ].map((o) => (
+        <h2 className="font-medium text-slate-700">2. 환자 유형 선택 (To-Do)</h2>
+        <div className="flex flex-wrap gap-2 bg-slate-50 rounded-lg p-3">
+          {PTYPE_OPTIONS.map((o) => (
             <button
               type="button"
               key={o.v}
-              onClick={() => setPtype(o.v)}
+              onClick={() => selectPtype(o.v)}
               className={`chip border ${ptype === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
             >
               {o.label}
             </button>
           ))}
         </div>
+        {ptype && TODOS[ptype] && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1.5">
+            <p className="text-sm font-medium text-amber-800">필수 확인 체크리스트 (요약에는 포함되지 않음)</p>
+            {TODOS[ptype].map((item) => (
+              <label key={item} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!todoChecks[item]}
+                  onChange={(e) => setTodoChecks((prev) => ({ ...prev, [item]: e.target.checked }))}
+                />
+                {item}
+              </label>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="card space-y-2">
         <h2 className="font-medium text-slate-700">3. 수술 및 병리 기록</h2>
         {surgRows.map((row, i) => (
           <div key={i} className="grid grid-cols-[1fr_120px_2fr_auto] gap-2 items-start">
-            <input className="input" placeholder="수술명" value={row.name} onChange={(e) => setSurgRows((p) => p.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))} />
-            <input className="input" placeholder="20260520" value={row.date} onChange={(e) => setSurgRows((p) => p.map((r, j) => (j === i ? { ...r, date: e.target.value } : r)))} />
-            <input className="input" placeholder="병리결과" value={row.path} onChange={(e) => setSurgRows((p) => p.map((r, j) => (j === i ? { ...r, path: e.target.value } : r)))} />
-            <button type="button" className="text-red-400 text-xs" onClick={() => setSurgRows((p) => p.filter((_, j) => j !== i))}>삭제</button>
+            <AutoTextarea
+              placeholder="수술명 입력"
+              value={row.name}
+              onChange={(v) => setSurgRows((p) => p.map((r, j) => (j === i ? { ...r, name: v } : r)))}
+            />
+            <input
+              className="input text-center"
+              placeholder="예: 20260520"
+              maxLength={10}
+              value={row.date}
+              onChange={(e) => setSurgRows((p) => p.map((r, j) => (j === i ? { ...r, date: autoFormatDateInput(e.target.value) } : r)))}
+            />
+            <AutoTextarea
+              placeholder="소견 입력"
+              value={row.path}
+              onChange={(v) => setSurgRows((p) => p.map((r, j) => (j === i ? { ...r, path: v } : r)))}
+            />
+            <button type="button" className="text-red-400 text-xs mt-2" onClick={() => setSurgRows((p) => p.filter((_, j) => j !== i))}>삭제</button>
           </div>
         ))}
         <button className="btn-outline !px-3 !py-1 text-xs" type="button" onClick={() => setSurgRows((p) => [...p, { name: "", date: "", path: "" }])}>
@@ -351,10 +457,24 @@ export default function MdtPage() {
         <h2 className="font-medium text-slate-700">4. 영상 검사</h2>
         {imgRows.map((row, i) => (
           <div key={i} className="grid grid-cols-[1fr_120px_2fr_auto] gap-2 items-start">
-            <input className="input" placeholder="검사명" value={row.name} onChange={(e) => setImgRows((p) => p.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))} />
-            <input className="input" placeholder="20260520" value={row.date} onChange={(e) => setImgRows((p) => p.map((r, j) => (j === i ? { ...r, date: e.target.value } : r)))} />
-            <input className="input" placeholder="주요 소견" value={row.desc} onChange={(e) => setImgRows((p) => p.map((r, j) => (j === i ? { ...r, desc: e.target.value } : r)))} />
-            <button type="button" className="text-red-400 text-xs" onClick={() => setImgRows((p) => p.filter((_, j) => j !== i))}>삭제</button>
+            <AutoTextarea
+              placeholder="검사명 입력"
+              value={row.name}
+              onChange={(v) => setImgRows((p) => p.map((r, j) => (j === i ? { ...r, name: v } : r)))}
+            />
+            <input
+              className="input text-center"
+              placeholder="예: 20260520"
+              maxLength={10}
+              value={row.date}
+              onChange={(e) => setImgRows((p) => p.map((r, j) => (j === i ? { ...r, date: autoFormatDateInput(e.target.value) } : r)))}
+            />
+            <AutoTextarea
+              placeholder="소견 입력"
+              value={row.desc}
+              onChange={(v) => setImgRows((p) => p.map((r, j) => (j === i ? { ...r, desc: v } : r)))}
+            />
+            <button type="button" className="text-red-400 text-xs mt-2" onClick={() => setImgRows((p) => p.filter((_, j) => j !== i))}>삭제</button>
           </div>
         ))}
         <button className="btn-outline !px-3 !py-1 text-xs" type="button" onClick={() => setImgRows((p) => [...p, { name: "", date: "", desc: "" }])}>
