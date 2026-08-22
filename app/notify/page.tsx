@@ -333,8 +333,18 @@ export default function NotifyPage() {
     if (epiglottisSwelling === "+" && symptoms.includes("Dyspnea")) r = "HIGH";
     if (vocalCordMovement === "paresis" || vocalCordMovement === "palsy") r = "HIGH";
     if (diagnosisId === "acute_sinusitis") {
-      if (symptoms.includes("Periorbital swelling") || symptoms.includes("Diplopia")) atLeast("MEDIUM");
-      if (symptoms.includes("Neurologic Sx")) atLeast("HIGH");
+      if (symptoms.includes("Periorbital swelling")) atLeast("MEDIUM");
+      // 안와/두개내 합병증을 시사하는 소견은 하나라도 있으면 역량 점수·시간대와 무관하게
+      // 즉시 전화 노티가 필요하도록 HIGH로 올립니다 (입원 필요성도 높은 소견들입니다).
+      if (
+        symptoms.includes("Diplopia") ||
+        symptoms.includes("Headache") ||
+        symptoms.includes("Neurologic Sx") ||
+        eomStatus === "limited" ||
+        exophthalmos === "+"
+      ) {
+        r = "HIGH";
+      }
     }
     // Peritonsillar abscess: 다량 drain 되고 airway 이상 소견이 전혀 없으면 기본 위험도(MEDIUM)를
     // LOW로 낮춰, 고년차(역량 점수 높음)에서는 새벽에 전화 없이 카톡만으로 진행할 수 있게 합니다.
@@ -351,7 +361,7 @@ export default function NotifyPage() {
       r = "LOW";
     }
     return r;
-  }, [selectedDiagnosis, tvcVisible, epiglottisSwelling, symptoms, vocalCordMovement, diagnosisId, larynxSwelling, aspirationDone, pusAmount]);
+  }, [selectedDiagnosis, tvcVisible, epiglottisSwelling, symptoms, vocalCordMovement, diagnosisId, larynxSwelling, aspirationDone, pusAmount, eomStatus, exophthalmos]);
 
   const myCompetency = useMemo(() => {
     return myCompetencyScores[diagnosisId] ?? null;
