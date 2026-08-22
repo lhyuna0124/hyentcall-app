@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_DIAGNOSES, DiagnosisRule, RiskLevel, riskColor, riskLabel } from "@/lib/triage";
-import { parseLabText, formatLabSummary, ParsedLab } from "@/lib/labRules";
+import { parseLabText, formatLabSummary, latestPerKey, formatMonthDay as formatLabDate, ParsedLab } from "@/lib/labRules";
 import { EvaluationRecord, Disposition, DISPOSITION_LABEL, PROFESSORS } from "@/lib/types";
 import { suggestContact, ContactSuggestion } from "@/lib/contactPolicy";
 
@@ -275,6 +275,13 @@ export default function NotifyPage() {
   const [ctReadType, setCtReadType] = useState<"구두판독" | "정식판독" | "추후 판독확인 필요">("구두판독");
   const [ctType, setCtType] = useState<"Neck CT" | "PNS CT" | "Facial CT">("Neck CT");
   const [ctFinding, setCtFinding] = useState("");
+  const ctFindingRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ctFindingRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [ctFinding]);
 
   // --- 치료 계획 ---
   const [treatReasons, setTreatReasons] = useState<string[]>([]);
@@ -514,9 +521,20 @@ export default function NotifyPage() {
 
     // Nasal cavity / Orbit 평가 (Acute sinusitis / Epistaxis)
     if (isSinusDx) {
-      if (nasalPolyp) parts.push(`Polyp ${nasalPolyp}${nasalPolypSide ? ` ${nasalPolypSide}` : ""}`);
-      if (nasalDischarge) parts.push(`Nasal discharge ${nasalDischarge}${nasalDischargeSide ? ` ${nasalDischargeSide}` : ""}`);
-      if (pndFinding) parts.push(`PND ${pndFinding}${pndSide ? ` ${pndSide}` : ""}`);
+      const nasalFindings = [
+        { label: "Polyp", value: nasalPolyp, side: nasalPolypSide },
+        { label: "Nasal discharge", value: nasalDischarge, side: nasalDischargeSide },
+        { label: "PND", value: pndFinding, side: pndSide },
+      ].filter((f) => f.value);
+      if (nasalFindings.length) {
+        const positiveSides = nasalFindings.filter((f) => f.value === "+" && f.side).map((f) => f.side);
+        const distinctSides = Array.from(new Set(positiveSides));
+        if (positiveSides.length >= 2 && distinctSides.length === 1) {
+          parts.push(`${distinctSides[0]}. ${nasalFindings.map((f) => `${f.label}(${f.value})`).join(", ")}`);
+        } else {
+          parts.push(nasalFindings.map((f) => `${f.label}(${f.value})${f.value === "+" && f.side ? ` ${f.side}` : ""}`).join(", "));
+        }
+      }
       if (nasalCavityEtc) parts.push(nasalCavityEtc);
 
       if (eomStatus === "limited") {
@@ -872,78 +890,82 @@ export default function NotifyPage() {
 
       {/* Nasal cavity / Orbit 평가 (Acute sinusitis / Epistaxis) */}
       {isSinusDx && (
-      <section className="card space-y-3">
-        <h2 className="font-bold text-slate-800">Nasal cavity 평가</h2>
-        <div className="field-row">
-          <span className="text-sm text-slate-700">Polyp</span>
-          <div className="flex gap-1 items-center">
-            {(["-", "+"] as const).map((v) => (
-              <button type="button" key={v} onClick={() => setNasalPolyp(nasalPolyp === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${nasalPolyp === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
-                {v}
-              </button>
-            ))}
-            {nasalPolyp === "+" && <SideBothChips value={nasalPolypSide} onChange={setNasalPolypSide} />}
-          </div>
-        </div>
-        <div className="field-row">
-          <span className="text-sm text-slate-700">Nasal discharge</span>
-          <div className="flex gap-1 items-center">
-            {(["-", "+"] as const).map((v) => (
-              <button type="button" key={v} onClick={() => setNasalDischarge(nasalDischarge === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${nasalDischarge === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
-                {v}
-              </button>
-            ))}
-            {nasalDischarge === "+" && <SideBothChips value={nasalDischargeSide} onChange={setNasalDischargeSide} />}
-          </div>
-        </div>
-        <div className="field-row">
-          <span className="text-sm text-slate-700">PND</span>
-          <div className="flex gap-1 items-center">
-            {(["-", "+"] as const).map((v) => (
-              <button type="button" key={v} onClick={() => setPndFinding(pndFinding === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${pndFinding === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
-                {v}
-              </button>
-            ))}
-            {pndFinding === "+" && <SideBothChips value={pndSide} onChange={setPndSide} />}
-          </div>
-        </div>
-        <div>
-          <label className="label">기타 소견 (추가입력)</label>
-          <input className="input" placeholder="자유롭게 기술" value={nasalCavityEtc} onChange={(e) => setNasalCavityEtc(e.target.value)} />
-        </div>
-
-        <div className="border-t border-slate-100 pt-3 space-y-2">
-          <h3 className="text-sm font-bold text-slate-800">Orbit 평가</h3>
-          <div className="field-row">
-            <span className="text-sm text-slate-700">EOM</span>
-            <div className="flex gap-1 items-center flex-wrap">
-              {[{ v: "intact", label: "Intact" }, { v: "limited", label: "Limited" }].map((o) => (
-                <button type="button" key={o.v} onClick={() => setEomStatus(eomStatus === o.v ? "" : (o.v as any))} className={`px-2 py-1 rounded-md text-xs border ${eomStatus === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                  {o.label}
-                </button>
-              ))}
-              {eomStatus === "limited" && (
-                <>
-                  <SideBothChips value={eomSide} onChange={setEomSide} />
-                  <MultiCheck options={["Lateral", "Medial"]} values={eomGazeType} onChange={setEomGazeType} />
-                </>
-              )}
+      <section className="card space-y-0">
+        <h2 className="font-bold text-slate-800 mb-1">Nasal cavity / Orbit 평가</h2>
+        <div className="grid grid-cols-2 gap-x-6">
+          <div className="space-y-0">
+            <div className="field-row">
+              <span className="text-sm text-slate-700">Polyp</span>
+              <div className="flex gap-1 items-center flex-wrap">
+                {(["-", "+"] as const).map((v) => (
+                  <button type="button" key={v} onClick={() => setNasalPolyp(nasalPolyp === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${nasalPolyp === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                    {v}
+                  </button>
+                ))}
+                {nasalPolyp === "+" && <SideBothChips value={nasalPolypSide} onChange={setNasalPolypSide} />}
+              </div>
+            </div>
+            <div className="field-row">
+              <span className="text-sm text-slate-700">Nasal discharge</span>
+              <div className="flex gap-1 items-center flex-wrap">
+                {(["-", "+"] as const).map((v) => (
+                  <button type="button" key={v} onClick={() => setNasalDischarge(nasalDischarge === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${nasalDischarge === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                    {v}
+                  </button>
+                ))}
+                {nasalDischarge === "+" && <SideBothChips value={nasalDischargeSide} onChange={setNasalDischargeSide} />}
+              </div>
+            </div>
+            <div className="field-row">
+              <span className="text-sm text-slate-700">PND</span>
+              <div className="flex gap-1 items-center flex-wrap">
+                {(["-", "+"] as const).map((v) => (
+                  <button type="button" key={v} onClick={() => setPndFinding(pndFinding === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${pndFinding === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                    {v}
+                  </button>
+                ))}
+                {pndFinding === "+" && <SideBothChips value={pndSide} onChange={setPndSide} />}
+              </div>
+            </div>
+            <div className="pt-2">
+              <label className="label">기타 소견 (추가입력)</label>
+              <input className="input" placeholder="자유롭게 기술" value={nasalCavityEtc} onChange={(e) => setNasalCavityEtc(e.target.value)} />
             </div>
           </div>
-          <div className="field-row">
-            <span className="text-sm text-slate-700">Exophthalmos</span>
-            <div className="flex gap-1 items-center">
-              {(["-", "+"] as const).map((v) => (
-                <button type="button" key={v} onClick={() => setExophthalmos(exophthalmos === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${exophthalmos === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
-                  {v}
-                </button>
-              ))}
-              {exophthalmos === "+" && <SideBothChips value={exophthalmosSide} onChange={setExophthalmosSide} />}
+
+          <div className="space-y-0 border-l border-slate-100 pl-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-1">Orbit 평가</h3>
+            <div className="field-row">
+              <span className="text-sm text-slate-700">EOM</span>
+              <div className="flex gap-1 items-center flex-wrap">
+                {[{ v: "intact", label: "Intact" }, { v: "limited", label: "Limited" }].map((o) => (
+                  <button type="button" key={o.v} onClick={() => setEomStatus(eomStatus === o.v ? "" : (o.v as any))} className={`px-2 py-1 rounded-md text-xs border ${eomStatus === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                    {o.label}
+                  </button>
+                ))}
+                {eomStatus === "limited" && (
+                  <>
+                    <SideBothChips value={eomSide} onChange={setEomSide} />
+                    <MultiCheck options={["Lateral", "Medial"]} values={eomGazeType} onChange={setEomGazeType} />
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="field-row">
+              <span className="text-sm text-slate-700">Exophthalmos</span>
+              <div className="flex gap-1 items-center flex-wrap">
+                {(["-", "+"] as const).map((v) => (
+                  <button type="button" key={v} onClick={() => setExophthalmos(exophthalmos === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${exophthalmos === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                    {v}
+                  </button>
+                ))}
+                {exophthalmos === "+" && <SideBothChips value={exophthalmosSide} onChange={setExophthalmosSide} />}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-slate-100 pt-3 space-y-2">
+        <div className="border-t border-slate-100 pt-3 mt-2 space-y-2">
           <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
             <input type="checkbox" checked={eyeConsultDone} onChange={(e) => setEyeConsultDone(e.target.checked)} />
             안과 진료 시행 시
@@ -1166,8 +1188,9 @@ export default function NotifyPage() {
           </div>
           {parsedLabs.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {parsedLabs.map((p) => (
+              {latestPerKey(parsedLabs).map((p) => (
                 <span key={p.key} className={`chip border ${p.status === "high" ? "bg-red-50 text-red-600 border-red-200" : p.status === "low" ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-slate-50 text-slate-500 border-slate-200"}`}>
+                  {p.date && <span className="text-slate-400 mr-0.5">{formatLabDate(p.date)}</span>}
                   {p.label} {p.value} {p.arrow}
                 </span>
               ))}
@@ -1192,8 +1215,10 @@ export default function NotifyPage() {
             </div>
             <div className="col-span-2">
               <label className="label">CT 소견</label>
-              <input
-                className="input"
+              <textarea
+                ref={ctFindingRef}
+                className="input resize-none overflow-hidden min-h-[38px]"
+                rows={1}
                 placeholder={isSinusDx ? "예: abscess formation around the bony orbital wall / Bony erosion of the sinus wall" : "예: both AFT, phlegmonous status"}
                 value={ctFinding}
                 onChange={(e) => setCtFinding(e.target.value)}
