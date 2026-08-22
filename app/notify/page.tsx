@@ -101,7 +101,7 @@ function MultiCheck({ options, values, onChange }: { options: string[]; values: 
 
 const BASE_SYMPTOMS = ["General weakness", "Fever", "Chill", "Sore throat", "Odynophagia", "Hoarseness", "Dysphagia", "Dyspnea"];
 const PAROTID_SYMPTOMS = ["Facial palsy", "Facial swelling"];
-const SINUS_SYMPTOMS = ["Fever", "Chill", "Nasal obstruction", "Rhinorrhea", "PND", "Hyposmia", "Diplopia", "Periorbital swelling", "Neurologic Sx"];
+const SINUS_SYMPTOMS = ["Fever", "Chill", "Nasal obstruction", "Rhinorrhea", "PND", "Hyposmia", "Diplopia", "Periorbital swelling", "Headache", "Neurologic Sx"];
 const PAROTID_DX = ["parotitis", "parotid_abscess"];
 const ABSCESS_DX = ["ptabscess", "parotid_abscess", "deep_neck"];
 const AIRWAY_MANDATORY_DX = ["airway_trauma", "epiglottitis", "acute_laryngitis"];
@@ -140,7 +140,7 @@ interface FormSnapshot {
   tvcVisible: "visible" | "not_visible" | ""; vocalCordMovement: "" | "intact" | "paresis" | "palsy"; vocalCordSide: "" | "Rt" | "Lt" | "Bilateral";
   nasalPolyp: PM; nasalPolypSide: SideBoth; nasalDischarge: PM; nasalDischargeSide: SideBoth;
   pndFinding: PM; pndSide: SideBoth; nasalCavityEtc: string;
-  eomStatus: "" | "intact" | "limited" | "equivocal"; eomSide: "" | "Rt" | "Lt" | "Bilateral"; exophthalmos: PM;
+  eomStatus: PM; eomSide: SideBoth; exophthalmos: PM; exophthalmosSide: SideBoth;
   eyeConsultDone: boolean; eyeConsultNote: string;
   lnSide: "" | "Rt" | "Lt" | "Bilateral"; lnLevel: string[]; lnSizeText: string;
   tenderness: PM; erythema: PM; heating: PM; pus: PM;
@@ -223,9 +223,10 @@ export default function NotifyPage() {
   const [pndFinding, setPndFinding] = useState<PM>("");
   const [pndSide, setPndSide] = useState<SideBoth>("");
   const [nasalCavityEtc, setNasalCavityEtc] = useState("");
-  const [eomStatus, setEomStatus] = useState<"" | "intact" | "limited" | "equivocal">("");
-  const [eomSide, setEomSide] = useState<"" | "Rt" | "Lt" | "Bilateral">("");
+  const [eomStatus, setEomStatus] = useState<PM>("");
+  const [eomSide, setEomSide] = useState<SideBoth>("");
   const [exophthalmos, setExophthalmos] = useState<PM>("");
+  const [exophthalmosSide, setExophthalmosSide] = useState<SideBoth>("");
   const [eyeConsultDone, setEyeConsultDone] = useState(false);
   const [eyeConsultNote, setEyeConsultNote] = useState("");
 
@@ -346,7 +347,7 @@ export default function NotifyPage() {
       larynxSwelling, epiglottisSwelling, airwayExtraFindings,
       tvcVisible, vocalCordMovement, vocalCordSide,
       nasalPolyp, nasalPolypSide, nasalDischarge, nasalDischargeSide, pndFinding, pndSide, nasalCavityEtc,
-      eomStatus, eomSide, exophthalmos, eyeConsultDone, eyeConsultNote,
+      eomStatus, eomSide, exophthalmos, exophthalmosSide, eyeConsultDone, eyeConsultNote,
       lnSide, lnLevel, lnSizeText,
       tenderness, erythema, heating, pus,
       parotidSide, parotidStatus, parotidDuct, smgSide, smgStatus, smgDuct,
@@ -373,7 +374,7 @@ export default function NotifyPage() {
     setTvcVisible(s.tvcVisible); setVocalCordMovement(s.vocalCordMovement || ""); setVocalCordSide(s.vocalCordSide || "");
     setNasalPolyp(s.nasalPolyp || ""); setNasalPolypSide(s.nasalPolypSide || ""); setNasalDischarge(s.nasalDischarge || ""); setNasalDischargeSide(s.nasalDischargeSide || "");
     setPndFinding(s.pndFinding || ""); setPndSide(s.pndSide || ""); setNasalCavityEtc(s.nasalCavityEtc || "");
-    setEomStatus(s.eomStatus || ""); setEomSide(s.eomSide || ""); setExophthalmos(s.exophthalmos || "");
+    setEomStatus(s.eomStatus || ""); setEomSide(s.eomSide || ""); setExophthalmos(s.exophthalmos || ""); setExophthalmosSide(s.exophthalmosSide || "");
     setEyeConsultDone(!!s.eyeConsultDone); setEyeConsultNote(s.eyeConsultNote || "");
     setLnSide(s.lnSide || ""); setLnLevel(s.lnLevel || []); setLnSizeText(s.lnSizeText || "");
     setTenderness(s.tenderness || ""); setErythema(s.erythema || ""); setHeating(s.heating || ""); setPus(s.pus || "");
@@ -508,14 +509,15 @@ export default function NotifyPage() {
       if (pndFinding) parts.push(`PND ${pndFinding}${pndSide ? ` ${pndSide}` : ""}`);
       if (nasalCavityEtc) parts.push(nasalCavityEtc);
 
-      if (eomStatus === "limited") {
-        parts.push(`EOM limited${eomSide ? ` (${eomSide} gaze 시)` : ""}`);
-      } else if (eomStatus === "equivocal") {
-        parts.push("EOM 평가 애매함 (swelling 심해 평가 어려움)");
-      } else if (eomStatus === "intact") {
+      if (eomStatus === "+") {
+        if (eomSide === "Rt") parts.push("Rt. gaze 시 Rt. EOM limited");
+        else if (eomSide === "Lt") parts.push("Lt. gaze 시 Lt. EOM limited");
+        else if (eomSide === "Both") parts.push("Both gaze 시 EOM limited");
+        else parts.push("EOM limited");
+      } else if (eomStatus === "-") {
         parts.push("EOM intact");
       }
-      if (exophthalmos) parts.push(`Exophthalmos ${exophthalmos}`);
+      if (exophthalmos) parts.push(`Exophthalmos ${exophthalmos}${exophthalmosSide ? ` ${exophthalmosSide}` : ""}`);
     }
 
     return parts.join(", ");
@@ -783,7 +785,7 @@ export default function NotifyPage() {
         <div className="acc-body">
           <div className="flex gap-2 items-center flex-wrap">
             <span className="text-sm text-slate-600 whitespace-nowrap">주호소</span>
-            <input className="input w-40" placeholder="예: 우측 인후통" value={chiefComplaint} onChange={(e) => setChiefComplaint(e.target.value)} />
+            <input className="input w-40" placeholder={isSinusDx ? "예: 우측 코피" : "예: 우측 인후통"} value={chiefComplaint} onChange={(e) => setChiefComplaint(e.target.value)} />
             <span className="text-sm text-slate-600 whitespace-nowrap">내원</span>
             <input className="input w-16" value={onsetValue} onChange={(e) => setOnsetValue(e.target.value)} placeholder="5" />
             <select className="input w-20" value={onsetUnit} onChange={(e) => setOnsetUnit(e.target.value)}>
@@ -860,7 +862,7 @@ export default function NotifyPage() {
       {/* Nasal cavity / Orbit 평가 (Acute sinusitis / Epistaxis) */}
       {isSinusDx && (
       <section className="card space-y-3">
-        <h2 className="font-medium text-slate-700 mb-1">Nasal cavity 평가</h2>
+        <h2 className="font-bold text-slate-800">Nasal cavity 평가</h2>
         <div className="field-row">
           <span className="text-sm text-slate-700">Polyp</span>
           <div className="flex gap-1 items-center">
@@ -869,7 +871,7 @@ export default function NotifyPage() {
                 {v}
               </button>
             ))}
-            <SideBothChips value={nasalPolypSide} onChange={setNasalPolypSide} />
+            {nasalPolyp === "+" && <SideBothChips value={nasalPolypSide} onChange={setNasalPolypSide} />}
           </div>
         </div>
         <div className="field-row">
@@ -880,7 +882,7 @@ export default function NotifyPage() {
                 {v}
               </button>
             ))}
-            <SideBothChips value={nasalDischargeSide} onChange={setNasalDischargeSide} />
+            {nasalDischarge === "+" && <SideBothChips value={nasalDischargeSide} onChange={setNasalDischargeSide} />}
           </div>
         </div>
         <div className="field-row">
@@ -891,45 +893,44 @@ export default function NotifyPage() {
                 {v}
               </button>
             ))}
-            <SideBothChips value={pndSide} onChange={setPndSide} />
+            {pndFinding === "+" && <SideBothChips value={pndSide} onChange={setPndSide} />}
           </div>
         </div>
         <div>
-          <label className="label">기타 특이사항 (자율기술)</label>
+          <label className="label">기타 소견 (추가입력)</label>
           <input className="input" placeholder="자유롭게 기술" value={nasalCavityEtc} onChange={(e) => setNasalCavityEtc(e.target.value)} />
         </div>
 
         <div className="border-t border-slate-100 pt-3 space-y-2">
-          <h3 className="text-sm font-medium text-slate-600">Orbit 평가</h3>
+          <h3 className="text-sm font-bold text-slate-800">Orbit 평가</h3>
           <div className="field-row">
             <span className="text-sm text-slate-700">EOM</span>
-            <div className="flex gap-1">
-              {[{ v: "intact", label: "Intact" }, { v: "limited", label: "Limited" }, { v: "equivocal", label: "평가 애매함" }].map((o) => (
-                <button type="button" key={o.v} onClick={() => setEomStatus(eomStatus === o.v ? "" : (o.v as any))} className={`px-2 py-1 rounded-md text-xs border ${eomStatus === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                  {o.label}
+            <div className="flex gap-1 items-center">
+              {(["-", "+"] as const).map((v) => (
+                <button type="button" key={v} onClick={() => setEomStatus(eomStatus === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${eomStatus === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                  {v}
                 </button>
               ))}
+              {eomStatus === "+" && <SideBothChips value={eomSide} onChange={setEomSide} />}
             </div>
           </div>
-          {eomStatus === "limited" && (
-            <div className="field-row">
-              <span className="text-sm text-slate-600">Gaze 방향</span>
-              <div className="flex gap-1">
-                {(["Rt", "Lt", "Bilateral"] as const).map((s) => (
-                  <button type="button" key={s} onClick={() => setEomSide(eomSide === s ? "" : s)} className={`px-2 py-1 rounded-md text-xs border ${eomSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
-                    {s}
-                  </button>
-                ))}
-              </div>
+          <div className="field-row">
+            <span className="text-sm text-slate-700">Exophthalmos</span>
+            <div className="flex gap-1 items-center">
+              {(["-", "+"] as const).map((v) => (
+                <button type="button" key={v} onClick={() => setExophthalmos(exophthalmos === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${exophthalmos === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                  {v}
+                </button>
+              ))}
+              {exophthalmos === "+" && <SideBothChips value={exophthalmosSide} onChange={setExophthalmosSide} />}
             </div>
-          )}
-          <Toggle label="Exophthalmos" value={exophthalmos} onChange={setExophthalmos} />
+          </div>
         </div>
 
         <div className="border-t border-slate-100 pt-3 space-y-2">
           <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
             <input type="checkbox" checked={eyeConsultDone} onChange={(e) => setEyeConsultDone(e.target.checked)} />
-            안과(OT) 진료 봤음 - 협진 답변 정리해서 노티에 포함
+            안과 진료 시행 시
           </label>
           {eyeConsultDone && (
             <textarea className="input min-h-[70px]" placeholder="안과 협진 답변 내용을 정리해서 붙여넣으세요." value={eyeConsultNote} onChange={(e) => setEyeConsultNote(e.target.value)} />

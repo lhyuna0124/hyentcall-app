@@ -60,6 +60,20 @@ export interface QuickLink {
   url: string;
 }
 
+// --- 개인 바로가기 (전공의 ID별로 직접 편집) ---
+export interface PersonalLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
+// --- 개인 메모장 (to-do list 형태) ---
+export interface MemoItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 // --- 건의사항 (우측 하단 위젯에서 관리자에게 전송) ---
 export interface FeedbackRecord {
   id: string;
