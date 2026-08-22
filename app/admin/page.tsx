@@ -33,6 +33,22 @@ export default function AdminPage() {
     fetch("/api/notifications").then((r) => r.json()).then(setNotifications).catch(() => {});
   }, []);
 
+  // 전공의별 요약의 "평균 역량점수"는 메모가 있어야만 남는 평가 기록이 아니라,
+  // 항상 최신으로 유지되는 점수 스냅샷(/api/competency-scores) 기준으로 계산합니다.
+  const [allCompetencyScores, setAllCompetencyScores] = useState<Record<string, Record<string, number>>>({});
+  useEffect(() => {
+    Promise.all(
+      residentList.map((r) =>
+        fetch(`/api/competency-scores?residentId=${r.id}`)
+          .then((res) => res.json())
+          .then((scores) => [r.id, scores] as const)
+      )
+    )
+      .then((entries) => setAllCompetencyScores(Object.fromEntries(entries)))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // --- 알고리즘 편집 (평가 폼보다 먼저 선언 필요) ---
   const [diagnoses, setDiagnoses] = useState<DiagnosisRule[]>(DEFAULT_DIAGNOSES);
   const [algoSaved, setAlgoSaved] = useState(false);
@@ -123,6 +139,7 @@ export default function AdminPage() {
       body: JSON.stringify({ residentId: resident.id, scores: scorePatch }),
     });
     setCurrentScores((prev) => ({ ...prev, ...scorePatch }));
+    setAllCompetencyScores((prev) => ({ ...prev, [resident.id]: { ...prev[resident.id], ...scorePatch } }));
 
     // 평가 기록(로그)에는 메모를 남겼을 때만 남깁니다.
     if (bulkNote.trim()) {
@@ -258,13 +275,13 @@ export default function AdminPage() {
     return residentList.map((r) => {
       const notiCount = notifications.filter((n) => n.residentId === r.id).length;
       const admitCount = notifications.filter((n) => n.residentId === r.id && n.disposition === "admit").length;
-      const evals = evaluations.filter((e) => e.residentId === r.id);
-      const avgCompetency = evals.length
-        ? (evals.reduce((sum, e) => sum + e.competency, 0) / evals.length).toFixed(1)
+      const scores = Object.values(allCompetencyScores[r.id] ?? {});
+      const avgCompetency = scores.length
+        ? (scores.reduce((sum, v) => sum + v, 0) / scores.length).toFixed(1)
         : "-";
-      return { resident: r, notiCount, admitCount, avgCompetency, evalCount: evals.length };
+      return { resident: r, notiCount, admitCount, avgCompetency, evalCount: scores.length };
     });
-  }, [notifications, evaluations, residentList]);
+  }, [notifications, allCompetencyScores, residentList]);
 
   if (loading || !user || !user.isAdmin) return null;
 
