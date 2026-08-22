@@ -33,6 +33,22 @@ export default function AdminPage() {
     fetch("/api/notifications").then((r) => r.json()).then(setNotifications).catch(() => {});
   }, []);
 
+  // 전공의별 요약의 "평균 역량점수"는 메모가 있어야만 남는 평가 기록이 아니라,
+  // 항상 최신으로 유지되는 점수 스냅샷(/api/competency-scores) 기준으로 계산합니다.
+  const [allCompetencyScores, setAllCompetencyScores] = useState<Record<string, Record<string, number>>>({});
+  useEffect(() => {
+    Promise.all(
+      residentList.map((r) =>
+        fetch(`/api/competency-scores?residentId=${r.id}`)
+          .then((res) => res.json())
+          .then((scores) => [r.id, scores] as const)
+      )
+    )
+      .then((entries) => setAllCompetencyScores(Object.fromEntries(entries)))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // --- 알고리즘 편집 (평가 폼보다 먼저 선언 필요) ---
   const [diagnoses, setDiagnoses] = useState<DiagnosisRule[]>(DEFAULT_DIAGNOSES);
   const [algoSaved, setAlgoSaved] = useState(false);
@@ -62,30 +78,42 @@ export default function AdminPage() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkSaved, setBulkSaved] = useState(false);
 
-  // 선택한 전공의의 진단명별 "가장 최근" 평가 점수를 불러와 초기값으로 채워줍니다.
-  const latestScoresForResident = useMemo(() => {
-    const map: Record<string, number> = {};
-    const mine = evaluations.filter((e) => e.residentId === evalResident);
-    for (const d of diagnoses) {
-      const forDx = mine.filter((e) => e.diagnosisId === d.id).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      if (forDx.length) map[d.id] = forDx[0].competency;
-    }
-    return map;
-  }, [evaluations, evalResident, diagnoses]);
+  // 선택한 전공의의 진단명별 "현재" 점수 스냅샷 (평가 기록과 별개로 항상 최신 유지되어,
+  // 메모 없이 저장해도 다른 전공의로 옮겼다가 돌아왔을 때 리셋되지 않습니다).
+  const [currentScores, setCurrentScores] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!evalResident) return;
+    fetch(`/api/competency-scores?residentId=${evalResident}`).then((r) => r.json()).then(setCurrentScores).catch(() => {});
+  }, [evalResident]);
 
   useEffect(() => {
     const init: Record<string, number | ""> = {};
     diagnoses.forEach((d) => {
-      init[d.id] = latestScoresForResident[d.id] ?? "";
+      init[d.id] = currentScores[d.id] ?? "";
     });
     setBulkScores(init);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evalResident, diagnoses.length]);
+  }, [evalResident, diagnoses.length, currentScores]);
 
   function applyQuickScoreToAll() {
     const next: Record<string, number | ""> = {};
     diagnoses.forEach((d) => (next[d.id] = quickScore));
     setBulkScores(next);
+  }
+
+  // --- 다른 전공의 점수 그대로 복사 (연차가 비슷하면 대부분 동일한 경우가 많아서) ---
+  const [copyFromResident, setCopyFromResident] = useState("");
+  const [copying, setCopying] = useState(false);
+
+  async function copyScoresFrom() {
+    if (!copyFromResident) return;
+    setCopying(true);
+    const res = await fetch(`/api/competency-scores?residentId=${copyFromResident}`);
+    const sourceScores: Record<string, number> = await res.json();
+    const next: Record<string, number | ""> = {};
+    diagnoses.forEach((d) => { next[d.id] = sourceScores[d.id] ?? ""; });
+    setBulkScores(next);
+    setCopying(false);
   }
 
   async function saveBulkEvaluations() {
@@ -94,41 +122,51 @@ export default function AdminPage() {
     if (!resident) return;
     const changed = diagnoses.filter((d) => {
       const val = bulkScores[d.id];
-      return val !== "" && val !== (latestScoresForResident[d.id] ?? "");
+      return val !== "" && val !== (currentScores[d.id] ?? "");
     });
     if (changed.length === 0) {
       alert("변경된 평가 점수가 없습니다.");
       return;
     }
-    if (!bulkNote.trim()) {
-      // 메모 없이 일괄 적용한 경우(예: 고년차 전체 5점 적용)는 평가 기록에 남기지 않습니다.
-      setBulkSaved(true);
-      setTimeout(() => setBulkSaved(false), 2000);
-      return;
-    }
     setBulkSaving(true);
-    const results = await Promise.all(
-      changed.map(async (d) => {
-        const payload: Omit<EvaluationRecord, "id" | "createdAt"> = {
-          residentId: resident.id,
-          residentName: resident.name,
-          evaluatorId: user.id,
-          diagnosisId: d.id,
-          diagnosisLabel: d.label,
-          competency: bulkScores[d.id] as 1 | 2 | 3 | 4 | 5,
-          note: bulkNote || undefined,
-        };
-        const res = await fetch("/api/evaluations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        return { ...payload, id: data.id, createdAt: new Date().toISOString() } as EvaluationRecord;
-      })
-    );
-    setEvaluations((prev) => [...results, ...prev]);
-    setBulkNote("");
+
+    // 점수 스냅샷은 메모 유무와 상관없이 항상 최신으로 반영합니다 (전공의를 바꿔도 유지).
+    const scorePatch: Record<string, number> = {};
+    changed.forEach((d) => { scorePatch[d.id] = bulkScores[d.id] as number; });
+    await fetch("/api/competency-scores", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ residentId: resident.id, scores: scorePatch }),
+    });
+    setCurrentScores((prev) => ({ ...prev, ...scorePatch }));
+    setAllCompetencyScores((prev) => ({ ...prev, [resident.id]: { ...prev[resident.id], ...scorePatch } }));
+
+    // 평가 기록(로그)에는 메모를 남겼을 때만 남깁니다.
+    if (bulkNote.trim()) {
+      const results = await Promise.all(
+        changed.map(async (d) => {
+          const payload: Omit<EvaluationRecord, "id" | "createdAt"> = {
+            residentId: resident.id,
+            residentName: resident.name,
+            evaluatorId: user.id,
+            diagnosisId: d.id,
+            diagnosisLabel: d.label,
+            competency: bulkScores[d.id] as 1 | 2 | 3 | 4 | 5,
+            note: bulkNote || undefined,
+          };
+          const res = await fetch("/api/evaluations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          return { ...payload, id: data.id, createdAt: new Date().toISOString() } as EvaluationRecord;
+        })
+      );
+      setEvaluations((prev) => [...results, ...prev]);
+      setBulkNote("");
+    }
+
     setBulkSaving(false);
     setBulkSaved(true);
     setTimeout(() => setBulkSaved(false), 2000);
@@ -237,13 +275,13 @@ export default function AdminPage() {
     return residentList.map((r) => {
       const notiCount = notifications.filter((n) => n.residentId === r.id).length;
       const admitCount = notifications.filter((n) => n.residentId === r.id && n.disposition === "admit").length;
-      const evals = evaluations.filter((e) => e.residentId === r.id);
-      const avgCompetency = evals.length
-        ? (evals.reduce((sum, e) => sum + e.competency, 0) / evals.length).toFixed(1)
+      const scores = Object.values(allCompetencyScores[r.id] ?? {});
+      const avgCompetency = scores.length
+        ? (scores.reduce((sum, v) => sum + v, 0) / scores.length).toFixed(1)
         : "-";
-      return { resident: r, notiCount, admitCount, avgCompetency, evalCount: evals.length };
+      return { resident: r, notiCount, admitCount, avgCompetency, evalCount: scores.length };
     });
-  }, [notifications, evaluations, residentList]);
+  }, [notifications, allCompetencyScores, residentList]);
 
   if (loading || !user || !user.isAdmin) return null;
 
@@ -366,7 +404,7 @@ export default function AdminPage() {
       </section>
 
       {/* 역량 평가 입력 (전공의별 일괄) */}
-      <section className="card space-y-3">
+      <section className="card space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="font-medium text-slate-700">전공의별 역량 평가 (일괄 입력)</h2>
           <select className="input w-48" value={evalResident} onChange={(e) => setEvalResident(e.target.value)}>
@@ -376,13 +414,27 @@ export default function AdminPage() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-3">
+        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
           <span className="text-sm text-slate-600">고년차라 대부분 개입이 필요 없다면, 한 번에</span>
           <select className="input !w-auto !py-1" value={quickScore} onChange={(e) => setQuickScore(Number(e.target.value))}>
             {[1, 2, 3, 4, 5].map((n) => (<option key={n} value={n}>{n}점</option>))}
           </select>
           <button className="btn-outline !py-1" type="button" onClick={applyQuickScoreToAll}>전체 질환에 적용</button>
           <span className="text-xs text-slate-400">→ 아래에서 예외인 질환만 따로 낮춰서 저장하세요.</span>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
+          <span className="text-sm text-slate-600">연차가 비슷한 다른 전공의 점수를 그대로</span>
+          <select className="input w-48" value={copyFromResident} onChange={(e) => setCopyFromResident(e.target.value)}>
+            <option value="">전공의 선택</option>
+            {residentList.filter((r) => r.id !== evalResident).map((r) => (
+              <option key={r.id} value={r.id}>{r.name} ({r.level})</option>
+            ))}
+          </select>
+          <button className="btn-outline !py-1" type="button" onClick={copyScoresFrom} disabled={!copyFromResident || copying}>
+            {copying ? "복사 중..." : "복사해서 채우기"}
+          </button>
+          <span className="text-xs text-slate-400">→ 복사 후 예외인 질환만 따로 수정해서 저장하세요.</span>
         </div>
 
         <div className="max-h-96 overflow-y-auto border border-slate-200 rounded-lg">
@@ -397,11 +449,11 @@ export default function AdminPage() {
             <tbody>
               {diagnoses.map((d) => (
                 <tr key={d.id} className="border-b border-slate-100 last:border-0">
-                  <td className="py-1.5 px-3">{d.label}</td>
-                  <td className="px-3 text-slate-400">{latestScoresForResident[d.id] ?? "-"}</td>
-                  <td className="px-3">
+                  <td className="py-0.5 px-3">{d.label}</td>
+                  <td className="px-3 text-slate-400">{currentScores[d.id] ?? "-"}</td>
+                  <td className="px-3 py-0.5">
                     <select
-                      className="input !py-1 !w-36"
+                      className="input !py-0.5 !w-36 !leading-tight"
                       value={bulkScores[d.id] ?? ""}
                       onChange={(e) => setBulkScores((prev) => ({ ...prev, [d.id]: e.target.value ? (Number(e.target.value) as any) : "" }))}
                     >

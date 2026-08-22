@@ -38,7 +38,7 @@ export default function MemoSidebar() {
   if (!user) return null;
 
   return (
-    <aside className="hidden 2xl:block fixed top-20 left-6 w-64 z-0">
+    <aside className="hidden 2xl:block fixed top-20 left-6 w-72 z-0">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <h3 className="text-sm font-semibold text-slate-700 mb-2">📝 내 메모</h3>
         <textarea
