@@ -404,7 +404,7 @@ export default function AdminPage() {
       </section>
 
       {/* 역량 평가 입력 (전공의별 일괄) */}
-      <section className="card space-y-3">
+      <section className="card space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="font-medium text-slate-700">전공의별 역량 평가 (일괄 입력)</h2>
           <select className="input w-48" value={evalResident} onChange={(e) => setEvalResident(e.target.value)}>
@@ -414,7 +414,7 @@ export default function AdminPage() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-3">
+        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
           <span className="text-sm text-slate-600">고년차라 대부분 개입이 필요 없다면, 한 번에</span>
           <select className="input !w-auto !py-1" value={quickScore} onChange={(e) => setQuickScore(Number(e.target.value))}>
             {[1, 2, 3, 4, 5].map((n) => (<option key={n} value={n}>{n}점</option>))}
@@ -423,7 +423,7 @@ export default function AdminPage() {
           <span className="text-xs text-slate-400">→ 아래에서 예외인 질환만 따로 낮춰서 저장하세요.</span>
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-3">
+        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
           <span className="text-sm text-slate-600">연차가 비슷한 다른 전공의 점수를 그대로</span>
           <select className="input w-48" value={copyFromResident} onChange={(e) => setCopyFromResident(e.target.value)}>
             <option value="">전공의 선택</option>
