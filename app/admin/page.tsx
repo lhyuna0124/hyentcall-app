@@ -62,25 +62,22 @@ export default function AdminPage() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkSaved, setBulkSaved] = useState(false);
 
-  // 선택한 전공의의 진단명별 "가장 최근" 평가 점수를 불러와 초기값으로 채워줍니다.
-  const latestScoresForResident = useMemo(() => {
-    const map: Record<string, number> = {};
-    const mine = evaluations.filter((e) => e.residentId === evalResident);
-    for (const d of diagnoses) {
-      const forDx = mine.filter((e) => e.diagnosisId === d.id).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      if (forDx.length) map[d.id] = forDx[0].competency;
-    }
-    return map;
-  }, [evaluations, evalResident, diagnoses]);
+  // 선택한 전공의의 진단명별 "현재" 점수 스냅샷 (평가 기록과 별개로 항상 최신 유지되어,
+  // 메모 없이 저장해도 다른 전공의로 옮겼다가 돌아왔을 때 리셋되지 않습니다).
+  const [currentScores, setCurrentScores] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!evalResident) return;
+    fetch(`/api/competency-scores?residentId=${evalResident}`).then((r) => r.json()).then(setCurrentScores).catch(() => {});
+  }, [evalResident]);
 
   useEffect(() => {
     const init: Record<string, number | ""> = {};
     diagnoses.forEach((d) => {
-      init[d.id] = latestScoresForResident[d.id] ?? "";
+      init[d.id] = currentScores[d.id] ?? "";
     });
     setBulkScores(init);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evalResident, diagnoses.length]);
+  }, [evalResident, diagnoses.length, currentScores]);
 
   function applyQuickScoreToAll() {
     const next: Record<string, number | ""> = {};
@@ -94,41 +91,50 @@ export default function AdminPage() {
     if (!resident) return;
     const changed = diagnoses.filter((d) => {
       const val = bulkScores[d.id];
-      return val !== "" && val !== (latestScoresForResident[d.id] ?? "");
+      return val !== "" && val !== (currentScores[d.id] ?? "");
     });
     if (changed.length === 0) {
       alert("변경된 평가 점수가 없습니다.");
       return;
     }
-    if (!bulkNote.trim()) {
-      // 메모 없이 일괄 적용한 경우(예: 고년차 전체 5점 적용)는 평가 기록에 남기지 않습니다.
-      setBulkSaved(true);
-      setTimeout(() => setBulkSaved(false), 2000);
-      return;
-    }
     setBulkSaving(true);
-    const results = await Promise.all(
-      changed.map(async (d) => {
-        const payload: Omit<EvaluationRecord, "id" | "createdAt"> = {
-          residentId: resident.id,
-          residentName: resident.name,
-          evaluatorId: user.id,
-          diagnosisId: d.id,
-          diagnosisLabel: d.label,
-          competency: bulkScores[d.id] as 1 | 2 | 3 | 4 | 5,
-          note: bulkNote || undefined,
-        };
-        const res = await fetch("/api/evaluations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        return { ...payload, id: data.id, createdAt: new Date().toISOString() } as EvaluationRecord;
-      })
-    );
-    setEvaluations((prev) => [...results, ...prev]);
-    setBulkNote("");
+
+    // 점수 스냅샷은 메모 유무와 상관없이 항상 최신으로 반영합니다 (전공의를 바꿔도 유지).
+    const scorePatch: Record<string, number> = {};
+    changed.forEach((d) => { scorePatch[d.id] = bulkScores[d.id] as number; });
+    await fetch("/api/competency-scores", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ residentId: resident.id, scores: scorePatch }),
+    });
+    setCurrentScores((prev) => ({ ...prev, ...scorePatch }));
+
+    // 평가 기록(로그)에는 메모를 남겼을 때만 남깁니다.
+    if (bulkNote.trim()) {
+      const results = await Promise.all(
+        changed.map(async (d) => {
+          const payload: Omit<EvaluationRecord, "id" | "createdAt"> = {
+            residentId: resident.id,
+            residentName: resident.name,
+            evaluatorId: user.id,
+            diagnosisId: d.id,
+            diagnosisLabel: d.label,
+            competency: bulkScores[d.id] as 1 | 2 | 3 | 4 | 5,
+            note: bulkNote || undefined,
+          };
+          const res = await fetch("/api/evaluations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          return { ...payload, id: data.id, createdAt: new Date().toISOString() } as EvaluationRecord;
+        })
+      );
+      setEvaluations((prev) => [...results, ...prev]);
+      setBulkNote("");
+    }
+
     setBulkSaving(false);
     setBulkSaved(true);
     setTimeout(() => setBulkSaved(false), 2000);
@@ -398,7 +404,7 @@ export default function AdminPage() {
               {diagnoses.map((d) => (
                 <tr key={d.id} className="border-b border-slate-100 last:border-0">
                   <td className="py-1.5 px-3">{d.label}</td>
-                  <td className="px-3 text-slate-400">{latestScoresForResident[d.id] ?? "-"}</td>
+                  <td className="px-3 text-slate-400">{currentScores[d.id] ?? "-"}</td>
                   <td className="px-3">
                     <select
                       className="input !py-1 !w-36"
