@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_DIAGNOSES, DiagnosisRule, RiskLevel, riskColor, riskLabel } from "@/lib/triage";
 import { parseLabText, formatLabSummary, latestPerKey, formatMonthDay as formatLabDate, ParsedLab } from "@/lib/labRules";
-import { EvaluationRecord, Disposition, DISPOSITION_LABEL, PROFESSORS } from "@/lib/types";
+import { Disposition, DISPOSITION_LABEL, PROFESSORS } from "@/lib/types";
 import { suggestContact, ContactSuggestion } from "@/lib/contactPolicy";
 
 type PM = "" | "-" | "+" | "±";
@@ -171,12 +171,14 @@ export default function NotifyPage() {
     fetch("/api/algorithm").then((r) => r.json()).then((d) => setDiagnoses(d)).catch(() => {});
   }, []);
 
-  const [myEvaluations, setMyEvaluations] = useState<EvaluationRecord[]>([]);
+  // 역량 점수는 메모가 있어야만 남는 평가 기록이 아니라, 관리자가 항상 최신으로 유지하는
+  // 점수 스냅샷(/api/competency-scores) 기준으로 가져와야 "메모 없이 일괄 적용"한 점수도 반영됩니다.
+  const [myCompetencyScores, setMyCompetencyScores] = useState<Record<string, number>>({});
   useEffect(() => {
     if (!user) return;
-    fetch("/api/evaluations")
+    fetch(`/api/competency-scores?residentId=${user.id}`)
       .then((r) => r.json())
-      .then((all: EvaluationRecord[]) => setMyEvaluations(all.filter((e) => e.residentId === user.id)))
+      .then(setMyCompetencyScores)
       .catch(() => {});
   }, [user]);
 
@@ -334,14 +336,26 @@ export default function NotifyPage() {
       if (symptoms.includes("Periorbital swelling") || symptoms.includes("Diplopia")) atLeast("MEDIUM");
       if (symptoms.includes("Neurologic Sx")) atLeast("HIGH");
     }
+    // Peritonsillar abscess: 다량 drain 되고 airway 이상 소견이 전혀 없으면 기본 위험도(MEDIUM)를
+    // LOW로 낮춰, 고년차(역량 점수 높음)에서는 새벽에 전화 없이 카톡만으로 진행할 수 있게 합니다.
+    if (
+      diagnosisId === "ptabscess" &&
+      r === "MEDIUM" &&
+      aspirationDone === "+" &&
+      pusAmount === "다량" &&
+      larynxSwelling !== "+" &&
+      epiglottisSwelling !== "+" &&
+      tvcVisible !== "not_visible" &&
+      (vocalCordMovement === "" || vocalCordMovement === "intact")
+    ) {
+      r = "LOW";
+    }
     return r;
-  }, [selectedDiagnosis, tvcVisible, epiglottisSwelling, symptoms, vocalCordMovement, diagnosisId]);
+  }, [selectedDiagnosis, tvcVisible, epiglottisSwelling, symptoms, vocalCordMovement, diagnosisId, larynxSwelling, aspirationDone, pusAmount]);
 
   const myCompetency = useMemo(() => {
-    const relevant = myEvaluations.filter((e) => e.diagnosisId === diagnosisId);
-    if (!relevant.length) return null;
-    return relevant.reduce((sum, e) => sum + e.competency, 0) / relevant.length;
-  }, [myEvaluations, diagnosisId]);
+    return myCompetencyScores[diagnosisId] ?? null;
+  }, [myCompetencyScores, diagnosisId]);
 
   const [finalText, setFinalText] = useState("");
   const [contactSuggestion, setContactSuggestion] = useState<ContactSuggestion | null>(null);
