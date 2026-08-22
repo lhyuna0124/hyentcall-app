@@ -53,6 +53,35 @@ export interface EvaluationRecord {
   note?: string;
 }
 
+// --- 바로가기 링크 (우측 하단 위젯) ---
+export interface QuickLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
+// --- 개인 바로가기 (전공의 ID별로 직접 편집) ---
+export interface PersonalLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
+// --- 개인 메모장 (Windows 메모장처럼 자유 기술 + 저장) ---
+export interface PersonalMemo {
+  content: string;
+  updatedAt: string;
+}
+
+// --- 건의사항 (우측 하단 위젯에서 관리자에게 전송) ---
+export interface FeedbackRecord {
+  id: string;
+  createdAt: string;
+  residentId: string;
+  residentName: string;
+  message: string;
+}
+
 // --- MDT 환자 목록 ---
 export type HospitalSite = "구리" | "서울";
 

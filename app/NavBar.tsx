@@ -22,28 +22,34 @@ export default function NavBar() {
 
   return (
     <header className="sticky top-0 z-10 bg-gradient-to-r from-brand-800 via-brand-700 to-brand-600 shadow-md">
-      <div className="w-full px-4 h-16 flex items-center gap-4">
-        <span className="font-bold text-white whitespace-nowrap text-lg tracking-tight flex-shrink-0">🏥 HY-ENT Workspace</span>
-        <nav className="flex items-center gap-1 text-sm whitespace-nowrap overflow-x-auto flex-1 min-w-0">
-          {tabs.map((t) => (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={
-                pathname === t.href
-                  ? "flex items-center gap-1 px-3 py-1.5 rounded-full bg-white text-brand-700 font-semibold shadow-sm flex-shrink-0"
-                  : "flex items-center gap-1 px-3 py-1.5 rounded-full text-blue-100 hover:bg-white/10 hover:text-white transition flex-shrink-0"
-              }
-            >
-              <span>{t.icon}</span>
-              {t.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-3 text-sm text-blue-100 whitespace-nowrap flex-shrink-0">
-          <span>
+      <div className="w-full px-4 h-16 flex items-center gap-2 sm:gap-4 overflow-hidden">
+        <span className="font-bold text-white whitespace-nowrap text-lg tracking-tight flex-shrink-0">
+          <span className="sm:hidden">🏥</span>
+          <span className="hidden sm:inline">🏥 HY-ENT Workspace</span>
+        </span>
+        <div className="flex-1 min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-x]">
+          <nav className="flex items-center gap-1 text-sm whitespace-nowrap w-max">
+            {tabs.map((t) => (
+              <Link
+                key={t.href}
+                href={t.href}
+                className={
+                  pathname === t.href
+                    ? "flex items-center gap-1 px-3 py-1.5 rounded-full bg-white text-brand-700 font-semibold shadow-sm flex-shrink-0"
+                    : "flex items-center gap-1 px-3 py-1.5 rounded-full text-blue-100 hover:bg-white/10 hover:text-white transition flex-shrink-0"
+                }
+              >
+                <span>{t.icon}</span>
+                {t.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 text-sm text-blue-100 whitespace-nowrap flex-shrink-0">
+          <span className="hidden sm:inline">
             👤 {user.name} ({user.level})
           </span>
+          <span className="sm:hidden">👤 {user.name}</span>
           <button onClick={logout} className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition">
             로그아웃
           </button>
