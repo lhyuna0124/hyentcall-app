@@ -85,6 +85,21 @@ export default function AdminPage() {
     setBulkScores(next);
   }
 
+  // --- 다른 전공의 점수 그대로 복사 (연차가 비슷하면 대부분 동일한 경우가 많아서) ---
+  const [copyFromResident, setCopyFromResident] = useState("");
+  const [copying, setCopying] = useState(false);
+
+  async function copyScoresFrom() {
+    if (!copyFromResident) return;
+    setCopying(true);
+    const res = await fetch(`/api/competency-scores?residentId=${copyFromResident}`);
+    const sourceScores: Record<string, number> = await res.json();
+    const next: Record<string, number | ""> = {};
+    diagnoses.forEach((d) => { next[d.id] = sourceScores[d.id] ?? ""; });
+    setBulkScores(next);
+    setCopying(false);
+  }
+
   async function saveBulkEvaluations() {
     if (!user) return;
     const resident = residentList.find((r) => r.id === evalResident);
@@ -389,6 +404,20 @@ export default function AdminPage() {
           </select>
           <button className="btn-outline !py-1" type="button" onClick={applyQuickScoreToAll}>전체 질환에 적용</button>
           <span className="text-xs text-slate-400">→ 아래에서 예외인 질환만 따로 낮춰서 저장하세요.</span>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-3">
+          <span className="text-sm text-slate-600">연차가 비슷한 다른 전공의 점수를 그대로</span>
+          <select className="input w-48" value={copyFromResident} onChange={(e) => setCopyFromResident(e.target.value)}>
+            <option value="">전공의 선택</option>
+            {residentList.filter((r) => r.id !== evalResident).map((r) => (
+              <option key={r.id} value={r.id}>{r.name} ({r.level})</option>
+            ))}
+          </select>
+          <button className="btn-outline !py-1" type="button" onClick={copyScoresFrom} disabled={!copyFromResident || copying}>
+            {copying ? "복사 중..." : "복사해서 채우기"}
+          </button>
+          <span className="text-xs text-slate-400">→ 복사 후 예외인 질환만 따로 수정해서 저장하세요.</span>
         </div>
 
         <div className="max-h-96 overflow-y-auto border border-slate-200 rounded-lg">
