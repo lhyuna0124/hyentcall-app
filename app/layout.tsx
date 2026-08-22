@@ -2,6 +2,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import NavBar from "./NavBar";
 import StaffBoardSidebar from "./StaffBoardSidebar";
+import QuickActionsWidget from "./QuickActionsWidget";
 
 export const metadata = {
   title: "HY-ENT Workspace",
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <NavBar />
           <StaffBoardSidebar />
           <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+          <QuickActionsWidget />
         </AuthProvider>
       </body>
     </html>

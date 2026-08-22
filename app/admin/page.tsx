@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { RESIDENTS } from "@/lib/residents";
 import { DEFAULT_DIAGNOSES, DiagnosisRule, RiskLevel } from "@/lib/triage";
-import { EvaluationRecord, NotificationRecord, MdtPatient } from "@/lib/types";
+import { EvaluationRecord, NotificationRecord, MdtPatient, QuickLink, FeedbackRecord } from "@/lib/types";
 
 const COMPETENCY_LABEL: Record<number, string> = {
   1: "1 - 대부분 상급자 개입 필요",
@@ -153,6 +153,47 @@ export default function AdminPage() {
     setTimeout(() => setBoardSaved(false), 2000);
   }
 
+  // --- 바로가기 링크 (우측 하단 위젯) ---
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
+  const [quickLinksSaving, setQuickLinksSaving] = useState(false);
+  const [quickLinksSaved, setQuickLinksSaved] = useState(false);
+  useEffect(() => {
+    fetch("/api/quicklinks").then((r) => r.json()).then(setQuickLinks).catch(() => {});
+  }, []);
+
+  function addQuickLink() {
+    setQuickLinks((prev) => [...prev, { id: crypto.randomUUID(), label: "", url: "" }]);
+  }
+
+  function updateQuickLink(id: string, patch: Partial<QuickLink>) {
+    setQuickLinks((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  }
+
+  function removeQuickLink(id: string) {
+    setQuickLinks((prev) => prev.filter((l) => l.id !== id));
+  }
+
+  async function saveQuickLinks() {
+    setQuickLinksSaving(true);
+    const valid = quickLinks.filter((l) => l.label.trim() && l.url.trim());
+    await fetch("/api/quicklinks", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(valid) });
+    setQuickLinks(valid);
+    setQuickLinksSaving(false);
+    setQuickLinksSaved(true);
+    setTimeout(() => setQuickLinksSaved(false), 2000);
+  }
+
+  // --- 건의사항함 ---
+  const [feedbackList, setFeedbackList] = useState<FeedbackRecord[]>([]);
+  useEffect(() => {
+    fetch("/api/feedback").then((r) => r.json()).then(setFeedbackList).catch(() => {});
+  }, []);
+
+  async function handleDeleteFeedback(id: string) {
+    await fetch(`/api/feedback?id=${id}`, { method: "DELETE" });
+    setFeedbackList((prev) => prev.filter((f) => f.id !== id));
+  }
+
   async function handleDeleteEvaluation(id: string) {
     if (!confirm("이 평가 기록을 삭제할까요?")) return;
     await fetch(`/api/evaluations?id=${id}`, { method: "DELETE" });
@@ -202,6 +243,73 @@ export default function AdminPage() {
             {boardSaving ? "저장 중..." : "게시판 저장"}
           </button>
           {boardSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
+        </div>
+      </section>
+
+      {/* 바로가기 링크 (우측 하단 위젯) */}
+      <section className="card space-y-3">
+        <h2 className="font-medium text-slate-700">바로가기 링크 (우측 하단 위젯)</h2>
+        <p className="text-xs text-slate-400">
+          여기에 추가한 링크는 모든 로그인 사용자 화면의 우측 하단 버튼을 눌렀을 때 나타납니다. 예: 논문 아카이브 시스템 등.
+        </p>
+        <div className="space-y-2">
+          {quickLinks.map((l) => (
+            <div key={l.id} className="flex items-center gap-2">
+              <input
+                className="input flex-1"
+                placeholder="이름 (예: 논문 아카이브 시스템)"
+                value={l.label}
+                onChange={(e) => updateQuickLink(l.id, { label: e.target.value })}
+              />
+              <input
+                className="input flex-1"
+                placeholder="https://..."
+                value={l.url}
+                onChange={(e) => updateQuickLink(l.id, { url: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() => removeQuickLink(l.id)}
+                className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-1.5 flex-shrink-0"
+              >
+                삭제
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="btn-outline" type="button" onClick={addQuickLink}>
+            + 링크 추가
+          </button>
+          <button className="btn" type="button" onClick={saveQuickLinks} disabled={quickLinksSaving}>
+            {quickLinksSaving ? "저장 중..." : "저장"}
+          </button>
+          {quickLinksSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
+        </div>
+      </section>
+
+      {/* 건의사항함 */}
+      <section className="card space-y-2">
+        <h2 className="font-medium text-slate-700">건의사항함 ({feedbackList.length}건)</h2>
+        <div className="space-y-2 max-h-72 overflow-y-auto">
+          {feedbackList.length === 0 && <p className="text-sm text-slate-400">접수된 건의사항이 없습니다.</p>}
+          {feedbackList.map((f) => (
+            <div key={f.id} className="text-sm border-b border-slate-100 pb-2 last:border-0">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">
+                  {f.residentName} <span className="text-slate-400 font-normal">· {new Date(f.createdAt).toLocaleString("ko-KR")}</span>
+                </span>
+                <button
+                  onClick={() => handleDeleteFeedback(f.id)}
+                  className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-0.5"
+                  type="button"
+                >
+                  삭제
+                </button>
+              </div>
+              <p className="text-slate-600 whitespace-pre-wrap mt-1">{f.message}</p>
+            </div>
+          ))}
         </div>
       </section>
 

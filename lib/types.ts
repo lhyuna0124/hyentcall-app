@@ -53,6 +53,22 @@ export interface EvaluationRecord {
   note?: string;
 }
 
+// --- 바로가기 링크 (우측 하단 위젯) ---
+export interface QuickLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
+// --- 건의사항 (우측 하단 위젯에서 관리자에게 전송) ---
+export interface FeedbackRecord {
+  id: string;
+  createdAt: string;
+  residentId: string;
+  residentName: string;
+  message: string;
+}
+
 // --- MDT 환자 목록 ---
 export type HospitalSite = "구리" | "서울";
 
