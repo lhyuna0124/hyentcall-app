@@ -13,6 +13,7 @@ export default function ResourcesPage() {
   }, [loading, user, router]);
 
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [activePdf, setActivePdf] = useState<{ url: string; title: string } | null>(null);
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof RESOURCES>();
@@ -49,20 +50,19 @@ export default function ResourcesPage() {
             {items
               .filter((r) => r.type === "pdf")
               .map((r) => (
-                <a
+                <button
                   key={r.filename}
-                  href={`/resources/${r.filename}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 transition"
+                  type="button"
+                  onClick={() => setActivePdf({ url: `/resources/${r.filename}`, title: r.title })}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 transition text-left"
                 >
                   <span className="text-2xl">📄</span>
                   <div>
                     <p className="text-sm font-medium text-slate-700">{r.title}</p>
                     {r.description && <p className="text-xs text-slate-400">{r.description}</p>}
                   </div>
-                  <span className="ml-auto text-xs text-brand-600">새 창에서 열기 →</span>
-                </a>
+                  <span className="ml-auto text-xs text-brand-600">바로 보기 →</span>
+                </button>
               ))}
           </div>
 
@@ -96,6 +96,36 @@ export default function ResourcesPage() {
           onClick={() => setActiveImage(null)}
         >
           <img src={activeImage} alt="" className="max-w-full max-h-full rounded-lg shadow-2xl" />
+        </div>
+      )}
+
+      {/* PDF 바로 보기 */}
+      {activePdf && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl h-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 flex-shrink-0">
+              <p className="text-sm font-medium text-slate-700 truncate">{activePdf.title}</p>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <a
+                  href={activePdf.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-brand-600 hover:underline"
+                >
+                  새 창에서 열기
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setActivePdf(null)}
+                  className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                  aria-label="닫기"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <iframe src={activePdf.url} title={activePdf.title} className="flex-1 w-full" />
+          </div>
         </div>
       )}
     </div>
