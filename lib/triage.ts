@@ -18,6 +18,8 @@ export const DEFAULT_DIAGNOSES: DiagnosisRule[] = [
   { id: "airway_trauma", label: "Airway trauma", baseRisk: "HIGH", immediateAdmit: true },
   { id: "postop_bleeding", label: "Postop bleeding (tonsillectomy/thyroidectomy/LMS 등)", baseRisk: "HIGH", immediateAdmit: true },
   { id: "deep_neck", label: "Deep neck infection", baseRisk: "HIGH", immediateAdmit: true },
+  { id: "acute_sinusitis", label: "Acute sinusitis", baseRisk: "MEDIUM", immediateAdmit: false },
+  { id: "epistaxis", label: "Epistaxis", baseRisk: "MEDIUM", immediateAdmit: false },
   { id: "transfer", label: "타병원 전원", baseRisk: "MEDIUM", immediateAdmit: false },
   { id: "other", label: "기타 (자유롭게 기술)", baseRisk: "LOW", immediateAdmit: false },
 ];

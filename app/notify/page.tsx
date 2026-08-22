@@ -61,6 +61,23 @@ function SideChips({ value, onChange }: { value: Side; onChange: (v: Side) => vo
   );
 }
 
+function SideBothChips({ value, onChange }: { value: SideBoth; onChange: (v: SideBoth) => void }) {
+  return (
+    <div className="flex gap-1">
+      {(["Rt", "Lt", "Both"] as const).map((s) => (
+        <button
+          type="button"
+          key={s}
+          onClick={() => onChange(value === s ? "" : s)}
+          className={`px-2.5 py-1 rounded-md text-xs border ${value === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function MultiCheck({ options, values, onChange }: { options: string[]; values: string[]; onChange: (v: string[]) => void }) {
   function toggle(opt: string) {
     if (values.includes(opt)) onChange(values.filter((v) => v !== opt));
@@ -84,9 +101,12 @@ function MultiCheck({ options, values, onChange }: { options: string[]; values: 
 
 const BASE_SYMPTOMS = ["General weakness", "Fever", "Chill", "Sore throat", "Odynophagia", "Hoarseness", "Dysphagia", "Dyspnea"];
 const PAROTID_SYMPTOMS = ["Facial palsy", "Facial swelling"];
+const SINUS_SYMPTOMS = ["Fever", "Chill", "Nasal obstruction", "Rhinorrhea", "PND", "Hyposmia", "Diplopia", "Periorbital swelling", "Neurologic Sx"];
 const PAROTID_DX = ["parotitis", "parotid_abscess"];
 const ABSCESS_DX = ["ptabscess", "parotid_abscess", "deep_neck"];
 const AIRWAY_MANDATORY_DX = ["airway_trauma", "epiglottitis", "acute_laryngitis"];
+const SINUS_DX = ["acute_sinusitis", "epistaxis"];
+type SideBoth = "" | "Rt" | "Lt" | "Both";
 
 function isRelevantGroup(group: "pharynx" | "lymphNode" | "inflammatory" | "salivary" | "oralFocus", diagnosisId: string) {
   switch (diagnosisId) {
@@ -118,6 +138,10 @@ interface FormSnapshot {
   lateralWallSwelling: PM; lateralWallSide: Side;
   larynxSwelling: PM; epiglottisSwelling: PM; airwayExtraFindings: string;
   tvcVisible: "visible" | "not_visible" | ""; vocalCordMovement: "" | "intact" | "paresis" | "palsy"; vocalCordSide: "" | "Rt" | "Lt" | "Bilateral";
+  nasalPolyp: PM; nasalPolypSide: SideBoth; nasalDischarge: PM; nasalDischargeSide: SideBoth;
+  pndFinding: PM; pndSide: SideBoth; nasalCavityEtc: string;
+  eomStatus: "" | "intact" | "limited" | "equivocal"; eomSide: "" | "Rt" | "Lt" | "Bilateral"; exophthalmos: PM;
+  eyeConsultDone: boolean; eyeConsultNote: string;
   lnSide: "" | "Rt" | "Lt" | "Bilateral"; lnLevel: string[]; lnSizeText: string;
   tenderness: PM; erythema: PM; heating: PM; pus: PM;
   parotidSide: string; parotidStatus: string[]; parotidDuct: string;
@@ -125,7 +149,7 @@ interface FormSnapshot {
   facialPalsy: PM; hbGrade: string;
   oralFocus: string[]; dentalCariesTeeth: string;
   aspirationDone: PM; idDone: PM; pusAmount: string;
-  labText: string; ctReadType: "구두판독" | "정식판독" | "추후 판독확인 필요"; ctFinding: string;
+  labText: string; ctReadType: "구두판독" | "정식판독" | "추후 판독확인 필요"; ctType: "Neck CT" | "PNS CT" | "Facial CT"; ctFinding: string;
   treatReasons: string[]; extraNote: string;
   dietType: "" | "NPO" | "SIPS" | "일반식이"; tpn: PM;
   professorName: string;
@@ -191,6 +215,20 @@ export default function NotifyPage() {
   const [vocalCordMovement, setVocalCordMovement] = useState<"" | "intact" | "paresis" | "palsy">("");
   const [vocalCordSide, setVocalCordSide] = useState<"" | "Rt" | "Lt" | "Bilateral">("");
 
+  // --- Nasal cavity / Orbit 평가 (Acute sinusitis / Epistaxis) ---
+  const [nasalPolyp, setNasalPolyp] = useState<PM>("");
+  const [nasalPolypSide, setNasalPolypSide] = useState<SideBoth>("");
+  const [nasalDischarge, setNasalDischarge] = useState<PM>("");
+  const [nasalDischargeSide, setNasalDischargeSide] = useState<SideBoth>("");
+  const [pndFinding, setPndFinding] = useState<PM>("");
+  const [pndSide, setPndSide] = useState<SideBoth>("");
+  const [nasalCavityEtc, setNasalCavityEtc] = useState("");
+  const [eomStatus, setEomStatus] = useState<"" | "intact" | "limited" | "equivocal">("");
+  const [eomSide, setEomSide] = useState<"" | "Rt" | "Lt" | "Bilateral">("");
+  const [exophthalmos, setExophthalmos] = useState<PM>("");
+  const [eyeConsultDone, setEyeConsultDone] = useState(false);
+  const [eyeConsultNote, setEyeConsultNote] = useState("");
+
   // --- Pharynx/Tonsil ---
   const [tonsilFindings, setTonsilFindings] = useState<string[]>([]);
   const [ptBulging, setPtBulging] = useState<PM>("");
@@ -233,6 +271,7 @@ export default function NotifyPage() {
   const [labText, setLabText] = useState("");
   const parsedLabs: ParsedLab[] = useMemo(() => parseLabText(labText), [labText]);
   const [ctReadType, setCtReadType] = useState<"구두판독" | "정식판독" | "추후 판독확인 필요">("구두판독");
+  const [ctType, setCtType] = useState<"Neck CT" | "PNS CT" | "Facial CT">("Neck CT");
   const [ctFinding, setCtFinding] = useState("");
 
   // --- 치료 계획 ---
@@ -263,7 +302,9 @@ export default function NotifyPage() {
   const isAbscessDx = ABSCESS_DX.includes(diagnosisId);
   const isPostopBleeding = diagnosisId === "postop_bleeding";
   const isAirwayMandatoryDx = AIRWAY_MANDATORY_DX.includes(diagnosisId);
-  const symptomOptions = isParotidDx ? [...BASE_SYMPTOMS, ...PAROTID_SYMPTOMS] : BASE_SYMPTOMS;
+  const isSinusDx = SINUS_DX.includes(diagnosisId);
+  const showPrevSurgery = isPostopBleeding || isSinusDx;
+  const symptomOptions = isSinusDx ? SINUS_SYMPTOMS : isParotidDx ? [...BASE_SYMPTOMS, ...PAROTID_SYMPTOMS] : BASE_SYMPTOMS;
 
   const showPharynx = isRelevantGroup("pharynx", diagnosisId);
   const showLymphNode = isRelevantGroup("lymphNode", diagnosisId);
@@ -304,13 +345,15 @@ export default function NotifyPage() {
       tonsilFindings, ptBulging, ptBulgingSide, uvulaDeviation, lateralWallSwelling, lateralWallSide,
       larynxSwelling, epiglottisSwelling, airwayExtraFindings,
       tvcVisible, vocalCordMovement, vocalCordSide,
+      nasalPolyp, nasalPolypSide, nasalDischarge, nasalDischargeSide, pndFinding, pndSide, nasalCavityEtc,
+      eomStatus, eomSide, exophthalmos, eyeConsultDone, eyeConsultNote,
       lnSide, lnLevel, lnSizeText,
       tenderness, erythema, heating, pus,
       parotidSide, parotidStatus, parotidDuct, smgSide, smgStatus, smgDuct,
       facialPalsy, hbGrade,
       oralFocus, dentalCariesTeeth,
       aspirationDone, idDone, pusAmount,
-      labText, ctReadType, ctFinding,
+      labText, ctReadType, ctType, ctFinding,
       treatReasons, extraNote, dietType, tpn,
       professorName, antiPlanType, antiPlanOther, dexa, dexaFreq, careLevel,
       explainDeathRisk, explainProcedure, consentStatus,
@@ -328,6 +371,10 @@ export default function NotifyPage() {
     setUvulaDeviation(s.uvulaDeviation); setLateralWallSwelling(s.lateralWallSwelling); setLateralWallSide(s.lateralWallSide || "");
     setLarynxSwelling(s.larynxSwelling); setEpiglottisSwelling(s.epiglottisSwelling); setAirwayExtraFindings(s.airwayExtraFindings || "");
     setTvcVisible(s.tvcVisible); setVocalCordMovement(s.vocalCordMovement || ""); setVocalCordSide(s.vocalCordSide || "");
+    setNasalPolyp(s.nasalPolyp || ""); setNasalPolypSide(s.nasalPolypSide || ""); setNasalDischarge(s.nasalDischarge || ""); setNasalDischargeSide(s.nasalDischargeSide || "");
+    setPndFinding(s.pndFinding || ""); setPndSide(s.pndSide || ""); setNasalCavityEtc(s.nasalCavityEtc || "");
+    setEomStatus(s.eomStatus || ""); setEomSide(s.eomSide || ""); setExophthalmos(s.exophthalmos || "");
+    setEyeConsultDone(!!s.eyeConsultDone); setEyeConsultNote(s.eyeConsultNote || "");
     setLnSide(s.lnSide || ""); setLnLevel(s.lnLevel || []); setLnSizeText(s.lnSizeText || "");
     setTenderness(s.tenderness || ""); setErythema(s.erythema || ""); setHeating(s.heating || ""); setPus(s.pus || "");
     setParotidSide(s.parotidSide || ""); setParotidStatus(s.parotidStatus || []); setParotidDuct(s.parotidDuct || "");
@@ -335,7 +382,7 @@ export default function NotifyPage() {
     setFacialPalsy(s.facialPalsy || ""); setHbGrade(s.hbGrade || "");
     setOralFocus(s.oralFocus || []); setDentalCariesTeeth(s.dentalCariesTeeth || "");
     setAspirationDone(s.aspirationDone || ""); setIdDone(s.idDone || ""); setPusAmount(s.pusAmount || "");
-    setLabText(s.labText); setCtReadType(s.ctReadType || "구두판독"); setCtFinding(s.ctFinding);
+    setLabText(s.labText); setCtReadType(s.ctReadType || "구두판독"); setCtType(s.ctType || "Neck CT"); setCtFinding(s.ctFinding);
     setTreatReasons(s.treatReasons); setExtraNote(s.extraNote);
     setDietType(s.dietType || ""); setTpn(s.tpn || "");
     setProfessorName(s.professorName || PROFESSORS[0]);
@@ -454,6 +501,23 @@ export default function NotifyPage() {
       parts.push("그 외 airway intact 하였습니다");
     }
 
+    // Nasal cavity / Orbit 평가 (Acute sinusitis / Epistaxis)
+    if (isSinusDx) {
+      if (nasalPolyp) parts.push(`Polyp ${nasalPolyp}${nasalPolypSide ? ` ${nasalPolypSide}` : ""}`);
+      if (nasalDischarge) parts.push(`Nasal discharge ${nasalDischarge}${nasalDischargeSide ? ` ${nasalDischargeSide}` : ""}`);
+      if (pndFinding) parts.push(`PND ${pndFinding}${pndSide ? ` ${pndSide}` : ""}`);
+      if (nasalCavityEtc) parts.push(nasalCavityEtc);
+
+      if (eomStatus === "limited") {
+        parts.push(`EOM limited${eomSide ? ` (${eomSide} gaze 시)` : ""}`);
+      } else if (eomStatus === "equivocal") {
+        parts.push("EOM 평가 애매함 (swelling 심해 평가 어려움)");
+      } else if (eomStatus === "intact") {
+        parts.push("EOM intact");
+      }
+      if (exophthalmos) parts.push(`Exophthalmos ${exophthalmos}`);
+    }
+
     return parts.join(", ");
   }
 
@@ -467,7 +531,7 @@ export default function NotifyPage() {
   function buildExplanationLine(): string {
     const parts: string[] = [];
     if (explainDeathRisk === "+") parts.push("sepsis 및 airway obstruction 진행 시 사망 가능성");
-    if (explainProcedure === "+") parts.push("필요시 tracheostomy/I&D 시행 가능성");
+    if (explainProcedure === "+") parts.push(isSinusDx ? "필요시 ESS 시행 가능성" : "필요시 tracheostomy/I&D 시행 가능성");
     let line = parts.length ? `환자/보호자에게 ${parts.join(", ")}에 대해 설명드렸습니다.` : "";
     if (consentStatus === "temp") line += `${line ? " " : ""}동의서 임시 저장하였습니다.`;
     if (consentStatus === "signed") line += `${line ? " " : ""}동의서 서명 완료하였습니다.`;
@@ -498,8 +562,13 @@ export default function NotifyPage() {
     let line = "Lab 상";
     if (labSummary) line += ` ${labSummary} 확인되며,`;
     if (!ctFinding) return line;
-    if (ctReadType === "추후 판독확인 필요") return `${line} Neck CT (CE) 상 ${ctFinding} 소견 보입니다 (추후 판독 확인 필요).`;
-    return `${line} Neck CT (CE) ${ctReadType} 상 ${ctFinding} 확인됩니다.`;
+    if (ctReadType === "추후 판독확인 필요") return `${line} ${ctType} (CE) 상 ${ctFinding} 소견 보입니다 (추후 판독 확인 필요).`;
+    return `${line} ${ctType} (CE) ${ctReadType} 상 ${ctFinding} 확인됩니다.`;
+  }
+
+  function buildEyeConsultLine(): string {
+    if (!eyeConsultDone || !eyeConsultNote) return "";
+    return `[안과 협진 답변]\n${eyeConsultNote}`;
   }
 
   function buildText() {
@@ -507,7 +576,7 @@ export default function NotifyPage() {
     lines.push("[응급실 환자 노티드립니다.]");
     lines.push("");
     lines.push(`${patientName || "ㅇㅇㅇ"} ${sex}/${age || "-"} ${diagnosisDisplayLabel}`);
-    if (isPostopBleeding && (prevSurgDate || prevSurgName)) {
+    if (showPrevSurgery && (prevSurgDate || prevSurgName)) {
       lines.push(`이전 수술: ${prevSurgName || "-"} (${prevSurgDate || "날짜 미상"})`);
     }
     lines.push("");
@@ -545,6 +614,12 @@ export default function NotifyPage() {
 
     lines.push("");
     lines.push(buildCtLine());
+
+    const eyeConsultLine = buildEyeConsultLine();
+    if (eyeConsultLine) {
+      lines.push("");
+      lines.push(eyeConsultLine);
+    }
 
     lines.push("");
     if (treatReasons.length) {
@@ -663,7 +738,7 @@ export default function NotifyPage() {
         {diagnosisId === "other" && (
           <input className="input" placeholder="진단명을 직접 입력하세요" value={customDiagnosisText} onChange={(e) => setCustomDiagnosisText(e.target.value)} />
         )}
-        {isPostopBleeding && (
+        {showPrevSurgery && (
           <div className="flex gap-3 bg-red-50 border border-red-100 rounded-lg p-3">
             <input className="input" placeholder="이전 수술 날짜 (예: 2026.08.10)" value={prevSurgDate} onChange={(e) => setPrevSurgDate(e.target.value)} />
             <input className="input" placeholder="이전 수술명 (예: Tonsillectomy)" value={prevSurgName} onChange={(e) => setPrevSurgName(e.target.value)} />
@@ -734,6 +809,7 @@ export default function NotifyPage() {
       </details>
 
       {/* Airway 평가 */}
+      {!isSinusDx && (
       <section className="card space-y-0">
         <h2 className="font-medium text-slate-700 mb-1">Airway 평가 (모든 진단에서 확인)</h2>
         <Toggle label="Larynx swelling" value={larynxSwelling} onChange={setLarynxSwelling} />
@@ -779,6 +855,88 @@ export default function NotifyPage() {
           </div>
         )}
       </section>
+      )}
+
+      {/* Nasal cavity / Orbit 평가 (Acute sinusitis / Epistaxis) */}
+      {isSinusDx && (
+      <section className="card space-y-3">
+        <h2 className="font-medium text-slate-700 mb-1">Nasal cavity 평가</h2>
+        <div className="field-row">
+          <span className="text-sm text-slate-700">Polyp</span>
+          <div className="flex gap-1 items-center">
+            {(["-", "+"] as const).map((v) => (
+              <button type="button" key={v} onClick={() => setNasalPolyp(nasalPolyp === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${nasalPolyp === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                {v}
+              </button>
+            ))}
+            <SideBothChips value={nasalPolypSide} onChange={setNasalPolypSide} />
+          </div>
+        </div>
+        <div className="field-row">
+          <span className="text-sm text-slate-700">Nasal discharge</span>
+          <div className="flex gap-1 items-center">
+            {(["-", "+"] as const).map((v) => (
+              <button type="button" key={v} onClick={() => setNasalDischarge(nasalDischarge === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${nasalDischarge === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                {v}
+              </button>
+            ))}
+            <SideBothChips value={nasalDischargeSide} onChange={setNasalDischargeSide} />
+          </div>
+        </div>
+        <div className="field-row">
+          <span className="text-sm text-slate-700">PND</span>
+          <div className="flex gap-1 items-center">
+            {(["-", "+"] as const).map((v) => (
+              <button type="button" key={v} onClick={() => setPndFinding(pndFinding === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${pndFinding === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
+                {v}
+              </button>
+            ))}
+            <SideBothChips value={pndSide} onChange={setPndSide} />
+          </div>
+        </div>
+        <div>
+          <label className="label">기타 특이사항 (자율기술)</label>
+          <input className="input" placeholder="자유롭게 기술" value={nasalCavityEtc} onChange={(e) => setNasalCavityEtc(e.target.value)} />
+        </div>
+
+        <div className="border-t border-slate-100 pt-3 space-y-2">
+          <h3 className="text-sm font-medium text-slate-600">Orbit 평가</h3>
+          <div className="field-row">
+            <span className="text-sm text-slate-700">EOM</span>
+            <div className="flex gap-1">
+              {[{ v: "intact", label: "Intact" }, { v: "limited", label: "Limited" }, { v: "equivocal", label: "평가 애매함" }].map((o) => (
+                <button type="button" key={o.v} onClick={() => setEomStatus(eomStatus === o.v ? "" : (o.v as any))} className={`px-2 py-1 rounded-md text-xs border ${eomStatus === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {eomStatus === "limited" && (
+            <div className="field-row">
+              <span className="text-sm text-slate-600">Gaze 방향</span>
+              <div className="flex gap-1">
+                {(["Rt", "Lt", "Bilateral"] as const).map((s) => (
+                  <button type="button" key={s} onClick={() => setEomSide(eomSide === s ? "" : s)} className={`px-2 py-1 rounded-md text-xs border ${eomSide === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <Toggle label="Exophthalmos" value={exophthalmos} onChange={setExophthalmos} />
+        </div>
+
+        <div className="border-t border-slate-100 pt-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input type="checkbox" checked={eyeConsultDone} onChange={(e) => setEyeConsultDone(e.target.checked)} />
+            안과(OT) 진료 봤음 - 협진 답변 정리해서 노티에 포함
+          </label>
+          {eyeConsultDone && (
+            <textarea className="input min-h-[70px]" placeholder="안과 협진 답변 내용을 정리해서 붙여넣으세요." value={eyeConsultNote} onChange={(e) => setEyeConsultNote(e.target.value)} />
+          )}
+        </div>
+      </section>
+      )}
 
       {/* Pharynx/Tonsil */}
       {showPharynx && (
@@ -983,7 +1141,7 @@ export default function NotifyPage() {
 
       {/* Lab / CT */}
       <details className="acc" open={openSections.labCt} onToggle={(e) => setOpenSections((p) => ({ ...p, labCt: (e.target as HTMLDetailsElement).open }))}>
-        <summary>Lab / Neck CT</summary>
+        <summary>Lab / CT</summary>
         <div className="acc-body">
           <div>
             <label className="label">Lab 결과 붙여넣기 (자동 인식)</label>
@@ -998,7 +1156,15 @@ export default function NotifyPage() {
               ))}
             </div>
           )}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
+            <div>
+              <label className="label">CT 종류</label>
+              <select className="input" value={ctType} onChange={(e) => setCtType(e.target.value as any)}>
+                <option value="Neck CT">Neck CT</option>
+                <option value="PNS CT">PNS CT</option>
+                <option value="Facial CT">Facial CT</option>
+              </select>
+            </div>
             <div>
               <label className="label">CT 판독 구분</label>
               <select className="input" value={ctReadType} onChange={(e) => setCtReadType(e.target.value as any)}>
@@ -1008,8 +1174,13 @@ export default function NotifyPage() {
               </select>
             </div>
             <div className="col-span-2">
-              <label className="label">Neck CT 소견</label>
-              <input className="input" placeholder="예: both AFT, phlegmonous status" value={ctFinding} onChange={(e) => setCtFinding(e.target.value)} />
+              <label className="label">CT 소견</label>
+              <input
+                className="input"
+                placeholder={isSinusDx ? "예: abscess formation around the bony orbital wall / Bony erosion of the sinus wall" : "예: both AFT, phlegmonous status"}
+                value={ctFinding}
+                onChange={(e) => setCtFinding(e.target.value)}
+              />
             </div>
           </div>
         </div>
@@ -1090,7 +1261,7 @@ export default function NotifyPage() {
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                 <input type="checkbox" checked={explainProcedure === "+"} onChange={(e) => setExplainProcedure(e.target.checked ? "+" : "")} />
-                필요시 tracheostomy / I&D 시행 가능성 설명
+                {isSinusDx ? "필요시 ESS 시행 가능성 설명" : "필요시 tracheostomy / I&D 시행 가능성 설명"}
               </label>
             </div>
             <div className="flex items-center gap-2 mt-1">
