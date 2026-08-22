@@ -449,11 +449,11 @@ export default function AdminPage() {
             <tbody>
               {diagnoses.map((d) => (
                 <tr key={d.id} className="border-b border-slate-100 last:border-0">
-                  <td className="py-1.5 px-3">{d.label}</td>
+                  <td className="py-0.5 px-3">{d.label}</td>
                   <td className="px-3 text-slate-400">{currentScores[d.id] ?? "-"}</td>
-                  <td className="px-3">
+                  <td className="px-3 py-0.5">
                     <select
-                      className="input !py-1 !w-36"
+                      className="input !py-0.5 !w-36 !leading-tight"
                       value={bulkScores[d.id] ?? ""}
                       onChange={(e) => setBulkScores((prev) => ({ ...prev, [d.id]: e.target.value ? (Number(e.target.value) as any) : "" }))}
                     >
