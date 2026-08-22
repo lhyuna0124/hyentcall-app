@@ -51,7 +51,7 @@ body {
   }
 
   .acc > summary {
-    @apply cursor-pointer select-none px-5 py-3 font-medium text-slate-700 list-none flex items-center justify-between;
+    @apply cursor-pointer select-none px-5 py-3 font-bold text-base text-slate-800 list-none flex items-center justify-between;
   }
 
   .acc > summary::-webkit-details-marker {
@@ -73,6 +73,6 @@ body {
   }
 
   .field-row {
-    @apply flex items-center justify-between py-1 border-b border-slate-100 last:border-0;
+    @apply flex items-center gap-3 py-1 border-b border-slate-100 last:border-0;
   }
 }

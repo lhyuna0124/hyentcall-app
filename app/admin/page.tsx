@@ -100,6 +100,12 @@ export default function AdminPage() {
       alert("변경된 평가 점수가 없습니다.");
       return;
     }
+    if (!bulkNote.trim()) {
+      // 메모 없이 일괄 적용한 경우(예: 고년차 전체 5점 적용)는 평가 기록에 남기지 않습니다.
+      setBulkSaved(true);
+      setTimeout(() => setBulkSaved(false), 2000);
+      return;
+    }
     setBulkSaving(true);
     const results = await Promise.all(
       changed.map(async (d) => {
@@ -248,9 +254,9 @@ export default function AdminPage() {
 
       {/* 바로가기 링크 (우측 하단 위젯) */}
       <section className="card space-y-3">
-        <h2 className="font-medium text-slate-700">바로가기 링크 (우측 하단 위젯)</h2>
+        <h2 className="font-medium text-slate-700">바로가기 링크 (우측 하단 사이드바)</h2>
         <p className="text-xs text-slate-400">
-          여기에 추가한 링크는 모든 로그인 사용자 화면의 우측 하단 버튼을 눌렀을 때 나타납니다. 예: 논문 아카이브 시스템 등.
+          여기에 추가한 링크는 모든 로그인 사용자 화면 우측 하단의 "바로가기" 사이드바 최상단에 표시됩니다 (2-3개 권장). 각 사용자는 그 아래 "내 바로가기"에서 본인만의 링크를 직접 추가할 수 있습니다. 예: 논문 아카이브 시스템 등.
         </p>
         <div className="space-y-2">
           {quickLinks.map((l) => (
@@ -393,6 +399,7 @@ export default function AdminPage() {
         </div>
 
         <textarea className="input min-h-[50px]" placeholder="이번 평가에 공통으로 남길 메모 (선택)" value={bulkNote} onChange={(e) => setBulkNote(e.target.value)} />
+        <p className="text-xs text-slate-400">※ 메모를 남기지 않고 저장하면 평가 기록에는 남지 않습니다 (고년차 일괄 5점 적용 등 참고용).</p>
         <div className="flex items-center gap-3">
           <button className="btn" onClick={saveBulkEvaluations} type="button" disabled={bulkSaving}>
             {bulkSaving ? "저장 중..." : "변경된 점수 저장"}

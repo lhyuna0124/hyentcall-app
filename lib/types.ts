@@ -67,11 +67,10 @@ export interface PersonalLink {
   url: string;
 }
 
-// --- 개인 메모장 (to-do list 형태) ---
-export interface MemoItem {
-  id: string;
-  text: string;
-  done: boolean;
+// --- 개인 메모장 (Windows 메모장처럼 자유 기술 + 저장) ---
+export interface PersonalMemo {
+  content: string;
+  updatedAt: string;
 }
 
 // --- 건의사항 (우측 하단 위젯에서 관리자에게 전송) ---

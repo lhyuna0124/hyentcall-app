@@ -2,81 +2,60 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { MemoItem } from "@/lib/types";
 
 export default function MemoSidebar() {
   const { user } = useAuth();
-  const [items, setItems] = useState<MemoItem[]>([]);
-  const [draft, setDraft] = useState("");
+  const [content, setContent] = useState("");
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     fetch(`/api/memo?residentId=${user.id}`)
       .then((r) => r.json())
-      .then(setItems)
+      .then((d) => {
+        setContent(d.content || "");
+        setUpdatedAt(d.updatedAt || "");
+      })
       .catch(() => {});
   }, [user]);
 
-  async function saveItems(next: MemoItem[]) {
-    setItems(next);
+  async function save() {
     if (!user) return;
+    setSaving(true);
     await fetch("/api/memo", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ residentId: user.id, items: next }),
+      body: JSON.stringify({ residentId: user.id, content }),
     });
-  }
-
-  function addItem() {
-    if (!draft.trim()) return;
-    saveItems([...items, { id: crypto.randomUUID(), text: draft.trim(), done: false }]);
-    setDraft("");
-  }
-
-  function toggleItem(id: string) {
-    saveItems(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
-  }
-
-  function removeItem(id: string) {
-    saveItems(items.filter((i) => i.id !== id));
+    setUpdatedAt(new Date().toISOString());
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
   }
 
   if (!user) return null;
 
   return (
     <aside className="hidden 2xl:block fixed top-20 left-6 w-64 z-0">
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <h3 className="text-sm font-semibold text-slate-700 mb-2">📝 내 메모</h3>
-        <div className="flex gap-1.5 mb-2">
-          <input
-            className="input !py-1 text-xs flex-1"
-            placeholder="할 일 추가"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addItem();
-            }}
-          />
-          <button type="button" onClick={addItem} className="btn !py-1 !px-2 text-xs flex-shrink-0">
-            추가
+        <textarea
+          className="input min-h-[240px] font-mono text-xs"
+          placeholder="자유롭게 메모하세요."
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+        />
+        <div className="flex items-center gap-2 mt-2">
+          <button type="button" onClick={save} className="btn !py-1 !px-3 text-xs" disabled={saving}>
+            {saving ? "저장 중..." : "저장"}
           </button>
+          {saved && <span className="text-xs text-emerald-600">저장됨</span>}
         </div>
-        <div className="space-y-1">
-          {items.length === 0 && <p className="text-xs text-slate-400">할 일이나 메모를 자유롭게 남겨보세요.</p>}
-          {items.map((i) => (
-            <div key={i.id} className="flex items-center gap-2 group">
-              <input type="checkbox" checked={i.done} onChange={() => toggleItem(i.id)} className="flex-shrink-0" />
-              <span className={`text-sm flex-1 break-words ${i.done ? "line-through text-slate-400" : "text-slate-600"}`}>{i.text}</span>
-              <button
-                type="button"
-                onClick={() => removeItem(i.id)}
-                className="text-slate-300 hover:text-red-500 text-xs flex-shrink-0 opacity-0 group-hover:opacity-100"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
+        {updatedAt && (
+          <p className="text-[10px] text-slate-300 mt-2">업데이트: {new Date(updatedAt).toLocaleString("ko-KR")}</p>
+        )}
       </div>
     </aside>
   );

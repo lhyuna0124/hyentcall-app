@@ -140,7 +140,7 @@ interface FormSnapshot {
   tvcVisible: "visible" | "not_visible" | ""; vocalCordMovement: "" | "intact" | "paresis" | "palsy"; vocalCordSide: "" | "Rt" | "Lt" | "Bilateral";
   nasalPolyp: PM; nasalPolypSide: SideBoth; nasalDischarge: PM; nasalDischargeSide: SideBoth;
   pndFinding: PM; pndSide: SideBoth; nasalCavityEtc: string;
-  eomStatus: PM; eomSide: SideBoth; exophthalmos: PM; exophthalmosSide: SideBoth;
+  eomStatus: "" | "intact" | "limited"; eomSide: SideBoth; eomGazeType: string[]; exophthalmos: PM; exophthalmosSide: SideBoth;
   eyeConsultDone: boolean; eyeConsultNote: string;
   lnSide: "" | "Rt" | "Lt" | "Bilateral"; lnLevel: string[]; lnSizeText: string;
   tenderness: PM; erythema: PM; heating: PM; pus: PM;
@@ -223,8 +223,9 @@ export default function NotifyPage() {
   const [pndFinding, setPndFinding] = useState<PM>("");
   const [pndSide, setPndSide] = useState<SideBoth>("");
   const [nasalCavityEtc, setNasalCavityEtc] = useState("");
-  const [eomStatus, setEomStatus] = useState<PM>("");
+  const [eomStatus, setEomStatus] = useState<"" | "intact" | "limited">("");
   const [eomSide, setEomSide] = useState<SideBoth>("");
+  const [eomGazeType, setEomGazeType] = useState<string[]>([]);
   const [exophthalmos, setExophthalmos] = useState<PM>("");
   const [exophthalmosSide, setExophthalmosSide] = useState<SideBoth>("");
   const [eyeConsultDone, setEyeConsultDone] = useState(false);
@@ -315,11 +316,19 @@ export default function NotifyPage() {
 
   const risk: RiskLevel = useMemo(() => {
     let r = selectedDiagnosis?.baseRisk ?? "LOW";
+    const RISK_ORDER: Record<RiskLevel, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 };
+    const atLeast = (level: RiskLevel) => {
+      if (RISK_ORDER[level] > RISK_ORDER[r]) r = level;
+    };
     if (tvcVisible === "not_visible") r = "HIGH";
     if (epiglottisSwelling === "+" && symptoms.includes("Dyspnea")) r = "HIGH";
     if (vocalCordMovement === "paresis" || vocalCordMovement === "palsy") r = "HIGH";
+    if (diagnosisId === "acute_sinusitis") {
+      if (symptoms.includes("Periorbital swelling") || symptoms.includes("Diplopia")) atLeast("MEDIUM");
+      if (symptoms.includes("Neurologic Sx")) atLeast("HIGH");
+    }
     return r;
-  }, [selectedDiagnosis, tvcVisible, epiglottisSwelling, symptoms, vocalCordMovement]);
+  }, [selectedDiagnosis, tvcVisible, epiglottisSwelling, symptoms, vocalCordMovement, diagnosisId]);
 
   const myCompetency = useMemo(() => {
     const relevant = myEvaluations.filter((e) => e.diagnosisId === diagnosisId);
@@ -347,7 +356,7 @@ export default function NotifyPage() {
       larynxSwelling, epiglottisSwelling, airwayExtraFindings,
       tvcVisible, vocalCordMovement, vocalCordSide,
       nasalPolyp, nasalPolypSide, nasalDischarge, nasalDischargeSide, pndFinding, pndSide, nasalCavityEtc,
-      eomStatus, eomSide, exophthalmos, exophthalmosSide, eyeConsultDone, eyeConsultNote,
+      eomStatus, eomSide, eomGazeType, exophthalmos, exophthalmosSide, eyeConsultDone, eyeConsultNote,
       lnSide, lnLevel, lnSizeText,
       tenderness, erythema, heating, pus,
       parotidSide, parotidStatus, parotidDuct, smgSide, smgStatus, smgDuct,
@@ -374,7 +383,8 @@ export default function NotifyPage() {
     setTvcVisible(s.tvcVisible); setVocalCordMovement(s.vocalCordMovement || ""); setVocalCordSide(s.vocalCordSide || "");
     setNasalPolyp(s.nasalPolyp || ""); setNasalPolypSide(s.nasalPolypSide || ""); setNasalDischarge(s.nasalDischarge || ""); setNasalDischargeSide(s.nasalDischargeSide || "");
     setPndFinding(s.pndFinding || ""); setPndSide(s.pndSide || ""); setNasalCavityEtc(s.nasalCavityEtc || "");
-    setEomStatus(s.eomStatus || ""); setEomSide(s.eomSide || ""); setExophthalmos(s.exophthalmos || ""); setExophthalmosSide(s.exophthalmosSide || "");
+    setEomStatus(s.eomStatus || ""); setEomSide(s.eomSide || ""); setEomGazeType(s.eomGazeType || []);
+    setExophthalmos(s.exophthalmos || ""); setExophthalmosSide(s.exophthalmosSide || "");
     setEyeConsultDone(!!s.eyeConsultDone); setEyeConsultNote(s.eyeConsultNote || "");
     setLnSide(s.lnSide || ""); setLnLevel(s.lnLevel || []); setLnSizeText(s.lnSizeText || "");
     setTenderness(s.tenderness || ""); setErythema(s.erythema || ""); setHeating(s.heating || ""); setPus(s.pus || "");
@@ -509,12 +519,13 @@ export default function NotifyPage() {
       if (pndFinding) parts.push(`PND ${pndFinding}${pndSide ? ` ${pndSide}` : ""}`);
       if (nasalCavityEtc) parts.push(nasalCavityEtc);
 
-      if (eomStatus === "+") {
-        if (eomSide === "Rt") parts.push("Rt. gaze 시 Rt. EOM limited");
-        else if (eomSide === "Lt") parts.push("Lt. gaze 시 Lt. EOM limited");
-        else if (eomSide === "Both") parts.push("Both gaze 시 EOM limited");
+      if (eomStatus === "limited") {
+        const gazeLabel = eomGazeType.length ? `${eomGazeType.map((t) => t.toLowerCase()).join("/")} ` : "";
+        if (eomSide === "Rt") parts.push(`Rt. ${gazeLabel}gaze 시 Rt. EOM limited`);
+        else if (eomSide === "Lt") parts.push(`Lt. ${gazeLabel}gaze 시 Lt. EOM limited`);
+        else if (eomSide === "Both") parts.push(`Both ${gazeLabel}gaze 시 EOM limited`);
         else parts.push("EOM limited");
-      } else if (eomStatus === "-") {
+      } else if (eomStatus === "intact") {
         parts.push("EOM intact");
       }
       if (exophthalmos) parts.push(`Exophthalmos ${exophthalmos}${exophthalmosSide ? ` ${exophthalmosSide}` : ""}`);
@@ -710,7 +721,7 @@ export default function NotifyPage() {
 
       {/* 환자 기본정보: 한 줄 */}
       <section className="card space-y-2">
-        <h2 className="font-medium text-slate-700">환자 기본 정보</h2>
+        <h2 className="font-bold text-slate-800">환자 기본 정보</h2>
         <div className="flex gap-3 items-end flex-wrap">
           <div className="flex-1 min-w-[140px]">
             <label className="label">이름</label>
@@ -813,7 +824,7 @@ export default function NotifyPage() {
       {/* Airway 평가 */}
       {!isSinusDx && (
       <section className="card space-y-0">
-        <h2 className="font-medium text-slate-700 mb-1">Airway 평가 (모든 진단에서 확인)</h2>
+        <h2 className="font-bold text-slate-800 mb-1">Airway 평가 (모든 진단에서 확인)</h2>
         <Toggle label="Larynx swelling" value={larynxSwelling} onChange={setLarynxSwelling} />
         <Toggle label="Epiglottis swelling" value={epiglottisSwelling} onChange={setEpiglottisSwelling} />
         <div className="grid grid-cols-2 gap-x-6">
@@ -905,13 +916,18 @@ export default function NotifyPage() {
           <h3 className="text-sm font-bold text-slate-800">Orbit 평가</h3>
           <div className="field-row">
             <span className="text-sm text-slate-700">EOM</span>
-            <div className="flex gap-1 items-center">
-              {(["-", "+"] as const).map((v) => (
-                <button type="button" key={v} onClick={() => setEomStatus(eomStatus === v ? "" : v)} className={`w-8 h-7 rounded-md text-xs font-semibold border ${eomStatus === v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-500"}`}>
-                  {v}
+            <div className="flex gap-1 items-center flex-wrap">
+              {[{ v: "intact", label: "Intact" }, { v: "limited", label: "Limited" }].map((o) => (
+                <button type="button" key={o.v} onClick={() => setEomStatus(eomStatus === o.v ? "" : (o.v as any))} className={`px-2 py-1 rounded-md text-xs border ${eomStatus === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}>
+                  {o.label}
                 </button>
               ))}
-              {eomStatus === "+" && <SideBothChips value={eomSide} onChange={setEomSide} />}
+              {eomStatus === "limited" && (
+                <>
+                  <SideBothChips value={eomSide} onChange={setEomSide} />
+                  <MultiCheck options={["Lateral", "Medial"]} values={eomGazeType} onChange={setEomGazeType} />
+                </>
+              )}
             </div>
           </div>
           <div className="field-row">
