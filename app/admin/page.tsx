@@ -206,6 +206,25 @@ export default function AdminPage() {
     setEvaluations((prev) => prev.filter((e) => e.id !== id));
   }
 
+  // --- 평가 기록 다중 선택 삭제 ---
+  const [selectedEvalIds, setSelectedEvalIds] = useState<string[]>([]);
+
+  function toggleEvalSelect(id: string) {
+    setSelectedEvalIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+  }
+
+  function toggleSelectAllEvals() {
+    setSelectedEvalIds((prev) => (prev.length === evaluations.length ? [] : evaluations.map((e) => e.id)));
+  }
+
+  async function handleBulkDeleteEvaluations() {
+    if (selectedEvalIds.length === 0) return;
+    if (!confirm(`선택한 평가 기록 ${selectedEvalIds.length}건을 삭제할까요?`)) return;
+    await Promise.all(selectedEvalIds.map((id) => fetch(`/api/evaluations?id=${id}`, { method: "DELETE" })));
+    setEvaluations((prev) => prev.filter((e) => !selectedEvalIds.includes(e.id)));
+    setSelectedEvalIds([]);
+  }
+
   async function handleDeleteMdt(id: string) {
     if (!confirm("이 다학제 환자 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
     await fetch(`/api/mdt?id=${id}`, { method: "DELETE" });
@@ -410,16 +429,41 @@ export default function AdminPage() {
 
       {/* 평가 기록 */}
       <section className="card">
-        <h2 className="font-medium text-slate-700 mb-3">평가 기록</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-medium text-slate-700">평가 기록</h2>
+          {evaluations.length > 0 && (
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedEvalIds.length === evaluations.length}
+                  onChange={toggleSelectAllEvals}
+                />
+                전체 선택
+              </label>
+              <button
+                type="button"
+                onClick={handleBulkDeleteEvaluations}
+                disabled={selectedEvalIds.length === 0}
+                className="text-red-500 hover:text-red-700 text-xs border border-red-200 rounded px-2 py-1 disabled:opacity-40"
+              >
+                선택 삭제 ({selectedEvalIds.length})
+              </button>
+            </div>
+          )}
+        </div>
         <div className="space-y-2 max-h-72 overflow-y-auto">
           {evaluations.length === 0 && <p className="text-sm text-slate-400">평가 기록이 없습니다.</p>}
           {evaluations.map((e) => (
             <div key={e.id} className="text-sm border-b border-slate-100 pb-2 last:border-0 flex items-center justify-between">
-              <div>
-                <span className="font-medium">{e.residentName}</span>
-                <span className="text-slate-400 mx-1">·</span>
-                <span className="text-slate-500">{e.diagnosisLabel}</span>
-                {e.note && <span className="text-slate-400 ml-2">- {e.note}</span>}
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={selectedEvalIds.includes(e.id)} onChange={() => toggleEvalSelect(e.id)} />
+                <div>
+                  <span className="font-medium">{e.residentName}</span>
+                  <span className="text-slate-400 mx-1">·</span>
+                  <span className="text-slate-500">{e.diagnosisLabel}</span>
+                  {e.note && <span className="text-slate-400 ml-2">- {e.note}</span>}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500">{COMPETENCY_LABEL[e.competency]}</span>

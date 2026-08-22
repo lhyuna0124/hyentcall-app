@@ -514,9 +514,20 @@ export default function NotifyPage() {
 
     // Nasal cavity / Orbit 평가 (Acute sinusitis / Epistaxis)
     if (isSinusDx) {
-      if (nasalPolyp) parts.push(`Polyp ${nasalPolyp}${nasalPolypSide ? ` ${nasalPolypSide}` : ""}`);
-      if (nasalDischarge) parts.push(`Nasal discharge ${nasalDischarge}${nasalDischargeSide ? ` ${nasalDischargeSide}` : ""}`);
-      if (pndFinding) parts.push(`PND ${pndFinding}${pndSide ? ` ${pndSide}` : ""}`);
+      const nasalFindings = [
+        { label: "Polyp", value: nasalPolyp, side: nasalPolypSide },
+        { label: "Nasal discharge", value: nasalDischarge, side: nasalDischargeSide },
+        { label: "PND", value: pndFinding, side: pndSide },
+      ].filter((f) => f.value);
+      if (nasalFindings.length) {
+        const positiveSides = nasalFindings.filter((f) => f.value === "+" && f.side).map((f) => f.side);
+        const distinctSides = Array.from(new Set(positiveSides));
+        if (positiveSides.length >= 2 && distinctSides.length === 1) {
+          parts.push(`${distinctSides[0]}. ${nasalFindings.map((f) => `${f.label}(${f.value})`).join(", ")}`);
+        } else {
+          parts.push(nasalFindings.map((f) => `${f.label}(${f.value})${f.value === "+" && f.side ? ` ${f.side}` : ""}`).join(", "));
+        }
+      }
       if (nasalCavityEtc) parts.push(nasalCavityEtc);
 
       if (eomStatus === "limited") {
@@ -872,8 +883,8 @@ export default function NotifyPage() {
 
       {/* Nasal cavity / Orbit 평가 (Acute sinusitis / Epistaxis) */}
       {isSinusDx && (
-      <section className="card space-y-3">
-        <h2 className="font-bold text-slate-800">Nasal cavity 평가</h2>
+      <section className="card space-y-0">
+        <h2 className="font-bold text-slate-800 mb-1">Nasal cavity 평가</h2>
         <div className="field-row">
           <span className="text-sm text-slate-700">Polyp</span>
           <div className="flex gap-1 items-center">
@@ -907,13 +918,13 @@ export default function NotifyPage() {
             {pndFinding === "+" && <SideBothChips value={pndSide} onChange={setPndSide} />}
           </div>
         </div>
-        <div>
+        <div className="pt-2">
           <label className="label">기타 소견 (추가입력)</label>
           <input className="input" placeholder="자유롭게 기술" value={nasalCavityEtc} onChange={(e) => setNasalCavityEtc(e.target.value)} />
         </div>
 
-        <div className="border-t border-slate-100 pt-3 space-y-2">
-          <h3 className="text-sm font-bold text-slate-800">Orbit 평가</h3>
+        <div className="border-t border-slate-100 pt-3 mt-2 space-y-0">
+          <h3 className="text-sm font-bold text-slate-800 mb-1">Orbit 평가</h3>
           <div className="field-row">
             <span className="text-sm text-slate-700">EOM</span>
             <div className="flex gap-1 items-center flex-wrap">
