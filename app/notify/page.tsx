@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_DIAGNOSES, DiagnosisRule, RiskLevel, riskColor, riskLabel } from "@/lib/triage";
-import { parseLabText, formatLabSummary, ParsedLab } from "@/lib/labRules";
+import { parseLabText, formatLabSummary, latestPerKey, formatMonthDay as formatLabDate, ParsedLab } from "@/lib/labRules";
 import { EvaluationRecord, Disposition, DISPOSITION_LABEL, PROFESSORS } from "@/lib/types";
 import { suggestContact, ContactSuggestion } from "@/lib/contactPolicy";
 
@@ -275,6 +275,13 @@ export default function NotifyPage() {
   const [ctReadType, setCtReadType] = useState<"구두판독" | "정식판독" | "추후 판독확인 필요">("구두판독");
   const [ctType, setCtType] = useState<"Neck CT" | "PNS CT" | "Facial CT">("Neck CT");
   const [ctFinding, setCtFinding] = useState("");
+  const ctFindingRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ctFindingRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [ctFinding]);
 
   // --- 치료 계획 ---
   const [treatReasons, setTreatReasons] = useState<string[]>([]);
@@ -1181,8 +1188,9 @@ export default function NotifyPage() {
           </div>
           {parsedLabs.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {parsedLabs.map((p) => (
+              {latestPerKey(parsedLabs).map((p) => (
                 <span key={p.key} className={`chip border ${p.status === "high" ? "bg-red-50 text-red-600 border-red-200" : p.status === "low" ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-slate-50 text-slate-500 border-slate-200"}`}>
+                  {p.date && <span className="text-slate-400 mr-0.5">{formatLabDate(p.date)}</span>}
                   {p.label} {p.value} {p.arrow}
                 </span>
               ))}
@@ -1207,8 +1215,10 @@ export default function NotifyPage() {
             </div>
             <div className="col-span-2">
               <label className="label">CT 소견</label>
-              <input
-                className="input"
+              <textarea
+                ref={ctFindingRef}
+                className="input resize-none overflow-hidden min-h-[38px]"
+                rows={1}
                 placeholder={isSinusDx ? "예: abscess formation around the bony orbital wall / Bony erosion of the sinus wall" : "예: both AFT, phlegmonous status"}
                 value={ctFinding}
                 onChange={(e) => setCtFinding(e.target.value)}
