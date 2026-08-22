@@ -457,6 +457,12 @@ export default function NotifyPage() {
     localStorage.removeItem(draftKey);
   }
 
+  function startNewPatient() {
+    if (!confirm("현재 작성 중인 내용을 모두 지우고 새 환자 노티를 시작하시겠습니까?")) return;
+    clearDraft();
+    window.location.reload();
+  }
+
   function autoGenerateHx() {
     if (!chiefComplaint && !onsetValue && symptoms.length === 0) {
       alert("주호소나 Onset 값, 증상 중 하나는 먼저 입력/선택해주세요!");
@@ -752,6 +758,7 @@ export default function NotifyPage() {
           <span className={`chip ${riskColor(risk)}`}>위험도: {riskLabel(risk)}</span>
           <button type="button" onClick={saveDraft} className="btn-outline !px-3 !py-1.5 text-xs">임시저장</button>
           {draftSaved && <span className="text-xs text-emerald-600">저장됨</span>}
+          <button type="button" onClick={startNewPatient} className="btn-outline !px-3 !py-1.5 text-xs">새 환자 작성하기</button>
         </div>
       </div>
 
