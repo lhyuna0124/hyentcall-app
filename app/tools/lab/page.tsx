@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { CONSENT_CATEGORIES, ConsentCategory, ConsentComment, ConsentProcedure, ConsentTemplate } from "@/lib/types";
-import { NECK_DISSECTION_NERVE_TEXT } from "@/lib/neckDissectionNerves";
+import { QUICK_COPY_TEXTS } from "@/lib/consentQuickCopy";
 
 type SectionKey = "purpose" | "process" | "complications" | "precautions";
 const SECTIONS: { key: SectionKey; title: string }[] = [
@@ -96,7 +96,7 @@ export default function LabPage() {
   const [draft, setDraft] = useState<ConsentTemplate | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const complicationsRef = useRef<HTMLTextAreaElement>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const [comments, setComments] = useState<ConsentComment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -149,22 +149,13 @@ export default function LabPage() {
     setTimeout(() => setSaved(false), 1500);
   }
 
-  function insertNerveText() {
-    if (!draft) return;
-    const el = complicationsRef.current;
-    const current = draft.complications;
-    if (el && document.activeElement === el) {
-      const start = el.selectionStart ?? current.length;
-      const end = el.selectionEnd ?? current.length;
-      const next = current.slice(0, start) + NECK_DISSECTION_NERVE_TEXT + current.slice(end);
-      setDraft({ ...draft, complications: next });
-      requestAnimationFrame(() => {
-        el.focus();
-        const pos = start + NECK_DISSECTION_NERVE_TEXT.length;
-        el.setSelectionRange(pos, pos);
-      });
-    } else {
-      setDraft({ ...draft, complications: current ? `${current}\n${NECK_DISSECTION_NERVE_TEXT}` : NECK_DISSECTION_NERVE_TEXT });
+  async function copyQuickText(id: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(id);
+      setTimeout(() => setCopiedKey((k) => (k === id ? null : k)), 1500);
+    } catch {
+      alert("복사에 실패했습니다. 브라우저 클립보드 권한을 확인해주세요.");
     }
   }
 
@@ -285,6 +276,29 @@ export default function LabPage() {
         )}
       </div>
 
+      {QUICK_COPY_TEXTS[activeCategory].length > 0 && (
+        <section className="card space-y-2">
+          <h2 className="font-bold text-slate-800 text-sm">🔖 자주 쓰는 문구 복사</h2>
+          <p className="text-xs text-slate-400">클릭하면 아래 문구가 클립보드에 복사됩니다. 동의서 작성 중 원하는 곳에 붙여넣으세요.</p>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_COPY_TEXTS[activeCategory].map((q) => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => copyQuickText(q.id, q.text)}
+                className={
+                  copiedKey === q.id
+                    ? "px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-semibold"
+                    : "px-3 py-1.5 rounded-full border border-slate-300 text-xs text-slate-600 hover:bg-slate-50"
+                }
+              >
+                {copiedKey === q.id ? "복사되었습니다" : q.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {activeProcedure && template && (
         <>
           <section className="card space-y-3">
@@ -315,21 +329,11 @@ export default function LabPage() {
                   <div key={s.key} className="space-y-1">
                     <label className="label">{s.title}</label>
                     <textarea
-                      ref={s.key === "complications" ? complicationsRef : undefined}
                       className="input min-h-[90px] text-xs"
                       placeholder="여기에 붙여넣으세요."
                       value={draft[s.key]}
                       onChange={(e) => setDraft({ ...draft, [s.key]: e.target.value })}
                     />
-                    {s.key === "complications" && (
-                      <button
-                        type="button"
-                        onClick={insertNerveText}
-                        className="text-xs text-brand-600 hover:underline"
-                      >
-                        + &lt;첨지&gt;와 같은 신경손상이 발생할 수 있다. (Neck dissection 신경합병증 삽입)
-                      </button>
-                    )}
                   </div>
                 ))}
                 <div className="flex items-center gap-2 pt-1">
