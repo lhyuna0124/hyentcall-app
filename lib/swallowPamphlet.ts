@@ -1,66 +1,118 @@
 // --- 맞춤형 연하 재활 훈련 팜플렛 생성기 (실험실) ---
 // 수술 정보를 입력하면 수술 전 연하재활 운동 중 해당 환자에게 맞는 항목을 자동으로 추천합니다.
-// 이 파일은 순수 로직만 담당하고, 아이콘/렌더링은 app/tools/lab/page.tsx에서 처리합니다.
+// 이 파일은 순수 로직만 담당하고, 아이콘/이미지/렌더링은 app/tools/lab/page.tsx에서 처리합니다.
 
-export type PrimarySite = "tongue" | "larynx" | "hypopharynx" | "tonsil_bot";
+export type PrimarySite = "tongue" | "fom" | "tonsil" | "bot" | "soft_palate" | "larynx" | "hypopharynx";
 
-export const PRIMARY_SITE_OPTIONS: { v: PrimarySite; label: string }[] = [
-  { v: "tongue", label: "설암 (Tongue)" },
-  { v: "larynx", label: "후두암 (Larynx)" },
-  { v: "hypopharynx", label: "하인두암 (Hypopharynx)" },
-  { v: "tonsil_bot", label: "편도/설근부암 (Tonsil/BOT)" },
+export const PRIMARY_SITE_OPTIONS: { v: PrimarySite; label: string; group: string }[] = [
+  { v: "tongue", label: "설암 (Tongue cancer)", group: "구강암" },
+  { v: "fom", label: "구강저암 (FOM cancer)", group: "구강암" },
+  { v: "tonsil", label: "편도암 (Tonsil cancer)", group: "구인두암" },
+  { v: "bot", label: "설근부암 (BOT cancer)", group: "구인두암" },
+  { v: "soft_palate", label: "연구개암 (Soft palate cancer)", group: "구인두암" },
+  { v: "larynx", label: "후두암 (Larynx cancer)", group: "후두암" },
+  { v: "hypopharynx", label: "하인두암 (Hypopharynx cancer)", group: "하인두암" },
 ];
 
 export const SURGERY_OPTIONS: Record<PrimarySite, { v: string; label: string }[]> = {
   tongue: [
-    { v: "glossectomy_partial", label: "Glossectomy (partial/subtotal)" },
-    { v: "glossectomy_recon", label: "Glossectomy with Reconstruction" },
+    { v: "partial_glossectomy", label: "Partial glossectomy" },
+    { v: "hemiglossectomy", label: "Hemiglossectomy" },
+    { v: "subtotal_glossectomy", label: "Subtotal glossectomy" },
   ],
+  fom: [{ v: "wide_excision_fom", label: "Wide excision of FOM" }],
+  tonsil: [{ v: "wide_excision_tonsil", label: "Wide excision of tonsil cancer" }],
+  bot: [{ v: "wide_excision_bot", label: "Wide excision of BOT cancer" }],
+  soft_palate: [{ v: "wide_excision_soft_palate", label: "Wide excision of soft palate" }],
   larynx: [
-    { v: "partial_laryngectomy", label: "Partial Laryngectomy (SPL/SCPL)" },
-    { v: "total_laryngectomy", label: "Total Laryngectomy" },
+    { v: "partial_laryngectomy", label: "Partial laryngectomy" },
+    { v: "total_laryngectomy", label: "Total laryngectomy" },
   ],
   hypopharynx: [
-    { v: "tlp_esophagectomy", label: "TLP /c cervical esophagectomy" },
-    { v: "partial_pharyngectomy", label: "Partial Pharyngectomy (후두 보존)" },
+    { v: "partial_pharyngectomy", label: "Partial pharyngectomy" },
+    { v: "total_laryngopharyngectomy", label: "Total laryngopharyngectomy" },
   ],
-  tonsil_bot: [{ v: "resection_recon", label: "Resection with Reconstruction" }],
 };
 
-export type DietStatus = "oral" | "severe_pain" | "npo";
-export const DIET_STATUS_OPTIONS: { v: DietStatus; label: string }[] = [
-  { v: "oral", label: "경구 섭취 가능" },
-  { v: "severe_pain", label: "연하통 심함" },
-  { v: "npo", label: "NPO (L-tube, PEG 등)" },
+// Partial laryngectomy 선택 시에만 추가로 선택하는 세부 술식 (표시용, 현재 추천 로직에는 영향 없음)
+export const PARTIAL_LARYNGECTOMY_TECHNIQUES: { v: string; label: string }[] = [
+  { v: "SPL", label: "SPL" },
+  { v: "SCPL", label: "SCPL" },
+  { v: "SGL", label: "SGL" },
 ];
 
-export type NeckDissection = "none" | "unilateral" | "bilateral";
-export const NECK_DISSECTION_OPTIONS: { v: NeckDissection; label: string }[] = [
-  { v: "none", label: "None" },
-  { v: "unilateral", label: "Unilateral" },
-  { v: "bilateral", label: "Bilateral" },
+// 수술접근법: 원발 부위별로 선택지가 다르며, 없는 부위는 필드 자체가 표시되지 않습니다.
+export const APPROACH_OPTIONS: Partial<Record<PrimarySite, { v: string; label: string }[]>> = {
+  tongue: [
+    { v: "transoral", label: "Via transoral" },
+    { v: "pull_through", label: "Pull-through" },
+  ],
+  fom: [
+    { v: "none", label: "-" },
+    { v: "mandibulotomy", label: "Mandibulotomy" },
+    { v: "mandibulectomy", label: "Mandibulectomy" },
+  ],
+  tonsil: [
+    { v: "none", label: "-" },
+    { v: "mandibulotomy", label: "Mandibulotomy" },
+    { v: "mandibulectomy", label: "Mandibulectomy" },
+    { v: "tors", label: "Via TORS" },
+  ],
+  bot: [
+    { v: "none", label: "-" },
+    { v: "mandibulotomy", label: "Mandibulotomy" },
+    { v: "mandibulectomy", label: "Mandibulectomy" },
+    { v: "tors", label: "Via TORS" },
+  ],
+  soft_palate: [
+    { v: "none", label: "-" },
+    { v: "mandibulotomy", label: "Mandibulotomy" },
+    { v: "mandibulectomy", label: "Mandibulectomy" },
+    { v: "tors", label: "Via TORS" },
+  ],
+};
+
+function hasMandibularApproach(approach?: string) {
+  return approach === "mandibulotomy" || approach === "mandibulectomy";
+}
+
+export type DietStatus = "normal" | "mild_dysphagia" | "aspiration_dysphagia" | "ltube" | "peg";
+export const DIET_STATUS_OPTIONS: { v: DietStatus; label: string }[] = [
+  { v: "normal", label: "정상식이 가능" },
+  { v: "mild_dysphagia", label: "통증 등 경미한 연하장애" },
+  { v: "aspiration_dysphagia", label: "흡인을 동반한 연하장애" },
+  { v: "ltube", label: "L-tube feeding" },
+  { v: "peg", label: "PEG status" },
 ];
 
 export interface PamphletInput {
   site: PrimarySite;
   surgery: string;
+  partialLarynxTechnique?: string; // surgery === "partial_laryngectomy" 일 때만 사용
+  approach?: string; // APPROACH_OPTIONS[site]가 있을 때만 사용
   ccrt: boolean;
   trismus: boolean;
-  mandibulotomy: boolean;
+  neckDissection: boolean;
+  neckDissectionSide?: "unilateral" | "bilateral"; // neckDissection === true 일 때만 사용
   freeFlap: boolean;
-  neckDissection: NeckDissection;
   diet: DietStatus;
+}
+
+function firstApproach(site: PrimarySite) {
+  return APPROACH_OPTIONS[site]?.[0]?.v;
 }
 
 export const DEFAULT_PAMPHLET_INPUT: PamphletInput = {
   site: "tongue",
   surgery: SURGERY_OPTIONS.tongue[0].v,
+  partialLarynxTechnique: undefined,
+  approach: firstApproach("tongue"),
   ccrt: false,
   trismus: false,
-  mandibulotomy: false,
+  neckDissection: false,
+  neckDissectionSide: undefined,
   freeFlap: false,
-  neckDissection: "none",
-  diet: "oral",
+  diet: "normal",
 };
 
 export interface PamphletExercise {
@@ -80,17 +132,24 @@ export interface PamphletResult {
   warning?: string;
 }
 
-function isTotalLaryngOrTLP(surgery: string) {
-  return surgery === "total_laryngectomy" || surgery === "tlp_esophagectomy";
-}
-
 function swallowWord(diet: DietStatus) {
-  return diet === "npo" || diet === "severe_pain" ? "마른 침" : "물 한 모금";
+  return diet === "aspiration_dysphagia" || diet === "ltube" || diet === "peg" ? "마른 침" : "물 한 모금";
 }
 
 export function buildPamphlet(input: PamphletInput): PamphletResult {
-  const { site, surgery, ccrt, trismus, mandibulotomy, freeFlap, neckDissection, diet } = input;
+  const { site, surgery, trismus, ccrt, neckDissection, neckDissectionSide, approach, freeFlap, diet } = input;
   const water = swallowWord(diet);
+  const hasMandibular = hasMandibularApproach(approach);
+
+  // 그룹 분류 (기존 로직과의 대응 관계를 유지하기 위한 내부 그룹핑)
+  const isTongue = site === "tongue";
+  const isTonsilOrBot = site === "tonsil" || site === "bot";
+  const isLarynxPartial = site === "larynx" && surgery === "partial_laryngectomy";
+  const isLarynxTotal = site === "larynx" && surgery === "total_laryngectomy";
+  const isHypoPartial = site === "hypopharynx" && surgery === "partial_pharyngectomy";
+  const isHypoTotal = site === "hypopharynx" && surgery === "total_laryngopharyngectomy";
+  const isAirwayRemoved = isLarynxTotal || isHypoTotal;
+
   const exercises: PamphletExercise[] = [];
 
   // 1. 구강 위생 관리 (공통 필수)
@@ -109,7 +168,7 @@ export function buildPamphlet(input: PamphletInput): PamphletResult {
 
   // 2. 목 근육 스트레칭 (공통 필수)
   const neckCaution =
-    neckDissection === "bilateral" || (neckDissection !== "none" && ccrt)
+    (neckDissection && neckDissectionSide === "bilateral") || (neckDissection && ccrt)
       ? "어깨와 목 근육을 과도하게 꺾지 말고, 통증이 없는 부드러운 범위 내에서만 하세요."
       : undefined;
   exercises.push({
@@ -129,7 +188,7 @@ export function buildPamphlet(input: PamphletInput): PamphletResult {
   });
 
   // 3. 턱 당기기 저항 운동 (CTAR)
-  const ctarRecommended = surgery === "partial_laryngectomy" || surgery === "resection_recon";
+  const ctarRecommended = isLarynxPartial || isTonsilOrBot;
   exercises.push({
     id: "ctar",
     icon: "ctar",
@@ -145,8 +204,7 @@ export function buildPamphlet(input: PamphletInput): PamphletResult {
   });
 
   // 4. 힘껏 삼키기 (노력성 연하)
-  const effortfulRecommended =
-    site === "tongue" || surgery === "partial_laryngectomy" || surgery === "total_laryngectomy" || surgery === "resection_recon";
+  const effortfulRecommended = isTongue || isLarynxPartial || isLarynxTotal || isTonsilOrBot;
   exercises.push({
     id: "effortful_swallow",
     icon: "zap",
@@ -162,9 +220,9 @@ export function buildPamphlet(input: PamphletInput): PamphletResult {
   });
 
   // 5. 삼킴 근육 강화 운동 (멘델슨 + 마사코) - 두 하위 기법을 독립적으로 안전 필터링
-  const mendelsohnApplicable = surgery === "partial_laryngectomy";
-  const masakoApplicable = site === "tongue" || site === "tonsil_bot" || surgery === "partial_pharyngectomy";
-  const mendelsohnShown = mendelsohnApplicable && !isTotalLaryngOrTLP(surgery);
+  const mendelsohnApplicable = isLarynxPartial;
+  const masakoApplicable = isTongue || isTonsilOrBot || isHypoPartial;
+  const mendelsohnShown = mendelsohnApplicable; // Total 계열은 애초에 isLarynxPartial이 아니므로 자동으로 제외됨
   const masakoShown = masakoApplicable && !trismus;
   const strengthenBase = mendelsohnApplicable || masakoApplicable;
   const strengthenDetail: string[] = [];
@@ -190,7 +248,6 @@ export function buildPamphlet(input: PamphletInput): PamphletResult {
   });
 
   // 6. 혀 스트레칭 및 강화 운동 (Trismus 시 입 안 대체 운동으로 전환)
-  const tongueRecommended = site === "tongue";
   const tongueDetail = trismus
     ? [
         "입을 다문 상태에서 혀를 양쪽 볼 안쪽 · 입천장 · 앞니 안쪽(위/아래/좌/우) 방향으로 강하게 밀어냅니다.",
@@ -202,19 +259,19 @@ export function buildPamphlet(input: PamphletInput): PamphletResult {
     icon: "tongue",
     title: "혀 스트레칭 및 강화 운동",
     locked: false,
-    autoRecommended: tongueRecommended,
+    autoRecommended: isTongue,
     hardExcluded: false,
     detail: tongueDetail,
     note: trismus ? "입을 벌리기 어려워 입 안에서 하는 대체 운동으로 안내됩니다." : undefined,
   });
 
-  // 7. 입 벌리기 연습 (하악 절개/절제 시 무조건 추가, Trismus 시 기본 제외)
+  // 7. 입 벌리기 연습 (수술접근법이 mandibulotomy/mandibulectomy면 무조건 추가, Trismus 시 기본 제외)
   exercises.push({
     id: "jaw_stretch",
     icon: "jaw",
     title: "입 벌리기 연습",
     locked: false,
-    autoRecommended: mandibulotomy,
+    autoRecommended: hasMandibular,
     hardExcluded: trismus,
     excludeReason: trismus
       ? "이미 입이 잘 안 벌어지는 상태에서 도구를 이용한 개구 운동은 무리가 될 수 있어 기본 제외되었습니다. (혀 스트레칭의 입 안 대체 운동을 참고하세요)"
@@ -222,16 +279,15 @@ export function buildPamphlet(input: PamphletInput): PamphletResult {
     detail: ["입을 최대한 크게 벌리고 10초간 유지합니다.", "필요하면 설압자를 어금니 사이에 물고 버티는 것도 좋습니다."],
   });
 
-  // 8. 성문 상부 연하법 (기도 보호 삼킴법) - TL / TLP는 구조적으로 해당 없음
-  const supraglotticExcluded = isTotalLaryngOrTLP(surgery);
+  // 8. 성문 상부 연하법 (기도 보호 삼킴법) - Total laryngectomy / Total laryngopharyngectomy는 구조적으로 해당 없음
   exercises.push({
     id: "supraglottic_swallow",
     icon: "shield",
     title: "성문 상부 연하법 (기도 보호 삼킴법)",
     locked: false,
-    autoRecommended: !supraglotticExcluded,
-    hardExcluded: supraglotticExcluded,
-    excludeReason: supraglotticExcluded
+    autoRecommended: !isAirwayRemoved,
+    hardExcluded: isAirwayRemoved,
+    excludeReason: isAirwayRemoved
       ? "이 수술은 기도와 식도가 완전히 분리되어 사레(흡인)가 구조적으로 발생하지 않으므로, 기도 보호 삼킴법은 해당되지 않아 기본 제외되었습니다."
       : undefined,
     detail: [
@@ -243,7 +299,7 @@ export function buildPamphlet(input: PamphletInput): PamphletResult {
   });
 
   const warning =
-    mandibulotomy || freeFlap
+    hasMandibular || freeFlap
       ? "수술 직후 뼈 유합과 이식 피판 안정을 위해, 의료진 허락 전까지 입을 크게 벌리거나 혀·턱을 세게 움직이는 연습을 절대 하지 마세요."
       : undefined;
 

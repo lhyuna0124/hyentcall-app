@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { LabIdeaComment } from "@/lib/types";
+import { EXERCISE_IMAGES } from "@/lib/exerciseImages";
 import {
+  APPROACH_OPTIONS,
   DEFAULT_PAMPHLET_INPUT,
   DIET_STATUS_OPTIONS,
-  NECK_DISSECTION_OPTIONS,
+  PARTIAL_LARYNGECTOMY_TECHNIQUES,
   PRIMARY_SITE_OPTIONS,
   PamphletExercise,
   PamphletInput,
@@ -86,15 +88,61 @@ function ToggleField({
   );
 }
 
+function ChipSelect({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { v: string; label: string }[];
+  value: string | undefined;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => (
+          <button
+            type="button"
+            key={o.v}
+            onClick={() => onChange(o.v)}
+            className={`chip border ${value === o.v ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SwallowPamphletGenerator() {
   const [input, setInput] = useState<PamphletInput>(DEFAULT_PAMPHLET_INPUT);
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
   const result = useMemo(() => buildPamphlet(input), [input]);
   const includedExercises = result.exercises.filter((ex) => isChecked(ex, overrides));
+  const approachOptions = APPROACH_OPTIONS[input.site];
 
   function updateSite(site: PrimarySite) {
-    setInput((v) => ({ ...v, site, surgery: SURGERY_OPTIONS[site][0].v }));
+    const surgery = SURGERY_OPTIONS[site][0].v;
+    setInput((v) => ({
+      ...v,
+      site,
+      surgery,
+      partialLarynxTechnique: surgery === "partial_laryngectomy" ? PARTIAL_LARYNGECTOMY_TECHNIQUES[0].v : undefined,
+      approach: APPROACH_OPTIONS[site]?.[0]?.v,
+    }));
+  }
+
+  function updateSurgery(surgery: string) {
+    setInput((v) => ({
+      ...v,
+      surgery,
+      partialLarynxTechnique: surgery === "partial_laryngectomy" ? PARTIAL_LARYNGECTOMY_TECHNIQUES[0].v : undefined,
+    }));
   }
 
   function toggle(id: string, current: boolean) {
@@ -110,30 +158,48 @@ function SwallowPamphletGenerator() {
         <p className="text-sm text-slate-500 mt-1">수술 정보를 입력하면 해당 환자에게 맞는 수술 전 연하재활 운동이 자동으로 추천됩니다.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
         {/* 입력 폼 */}
         <div className="card space-y-4 print:hidden">
           <div>
             <label className="label">원발 부위</label>
             <select className="input" value={input.site} onChange={(e) => updateSite(e.target.value as PrimarySite)}>
-              {PRIMARY_SITE_OPTIONS.map((o) => (
-                <option key={o.v} value={o.v}>
-                  {o.label}
-                </option>
+              {Object.entries(
+                PRIMARY_SITE_OPTIONS.reduce<Record<string, typeof PRIMARY_SITE_OPTIONS>>((acc, o) => {
+                  (acc[o.group] ??= []).push(o);
+                  return acc;
+                }, {})
+              ).map(([group, opts]) => (
+                <optgroup key={group} label={group}>
+                  {opts.map((o) => (
+                    <option key={o.v} value={o.v}>
+                      {o.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className="label">예정 수술명</label>
-            <select className="input" value={input.surgery} onChange={(e) => setInput((v) => ({ ...v, surgery: e.target.value }))}>
-              {SURGERY_OPTIONS[input.site].map((o) => (
-                <option key={o.v} value={o.v}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ChipSelect label="예정 수술명" options={SURGERY_OPTIONS[input.site]} value={input.surgery} onChange={updateSurgery} />
+
+          {input.surgery === "partial_laryngectomy" && (
+            <ChipSelect
+              label="세부 술식"
+              options={PARTIAL_LARYNGECTOMY_TECHNIQUES}
+              value={input.partialLarynxTechnique}
+              onChange={(v) => setInput((s) => ({ ...s, partialLarynxTechnique: v }))}
+            />
+          )}
+
+          {approachOptions && (
+            <ChipSelect
+              label="수술접근법"
+              options={approachOptions}
+              value={input.approach}
+              onChange={(v) => setInput((s) => ({ ...s, approach: v }))}
+            />
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ToggleField label="수술 전 CCRT" value={input.ccrt} onChange={(v) => setInput((s) => ({ ...s, ccrt: v }))} onLabel="+" offLabel="-" />
@@ -144,51 +210,43 @@ function SwallowPamphletGenerator() {
               onLabel="+"
               offLabel="-"
             />
-            <ToggleField
-              label="하악 절개/절제 (Mandibulotomy/ectomy)"
-              value={input.mandibulotomy}
-              onChange={(v) => setInput((s) => ({ ...s, mandibulotomy: v }))}
-              onLabel="O"
-              offLabel="X"
-            />
-            <ToggleField
-              label="유리 재건술"
-              value={input.freeFlap}
-              onChange={(v) => setInput((s) => ({ ...s, freeFlap: v }))}
-              onLabel="O"
-              offLabel="X"
-            />
           </div>
 
-          <div>
-            <label className="label">경부곽청술 (Neck Dissection)</label>
-            <select
-              className="input"
+          <div className="space-y-3">
+            <ToggleField
+              label="Neck Dissection"
               value={input.neckDissection}
-              onChange={(e) => setInput((v) => ({ ...v, neckDissection: e.target.value as PamphletInput["neckDissection"] }))}
-            >
-              {NECK_DISSECTION_OPTIONS.map((o) => (
-                <option key={o.v} value={o.v}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setInput((s) => ({ ...s, neckDissection: v, neckDissectionSide: v ? s.neckDissectionSide ?? "unilateral" : undefined }))}
+              onLabel="+"
+              offLabel="-"
+            />
+            {input.neckDissection && (
+              <ChipSelect
+                label="범위"
+                options={[
+                  { v: "unilateral", label: "Unilateral" },
+                  { v: "bilateral", label: "Bilateral" },
+                ]}
+                value={input.neckDissectionSide}
+                onChange={(v) => setInput((s) => ({ ...s, neckDissectionSide: v as "unilateral" | "bilateral" }))}
+              />
+            )}
           </div>
 
-          <div>
-            <label className="label">수술 전 식이 상태</label>
-            <select
-              className="input"
-              value={input.diet}
-              onChange={(e) => setInput((v) => ({ ...v, diet: e.target.value as PamphletInput["diet"] }))}
-            >
-              {DIET_STATUS_OPTIONS.map((o) => (
-                <option key={o.v} value={o.v}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ToggleField
+            label="유리 피판 재건술"
+            value={input.freeFlap}
+            onChange={(v) => setInput((s) => ({ ...s, freeFlap: v }))}
+            onLabel="+"
+            offLabel="-"
+          />
+
+          <ChipSelect
+            label="수술 전 식이 상태"
+            options={DIET_STATUS_OPTIONS}
+            value={input.diet}
+            onChange={(v) => setInput((s) => ({ ...s, diet: v as PamphletInput["diet"] }))}
+          />
 
           <div className="border-t border-slate-100 pt-3 space-y-1">
             <div className="flex items-center justify-between">
@@ -225,42 +283,49 @@ function SwallowPamphletGenerator() {
         </div>
 
         {/* 미리보기 */}
-        <div className="card space-y-4">
+        <div className="card space-y-3">
           <div className="flex items-center justify-between print:hidden">
-            <label className="label mb-0">📄 팜플렛 미리보기</label>
+            <label className="label mb-0 text-xs">📄 팜플렛 미리보기</label>
             <button type="button" onClick={() => window.print()} className="btn !px-3 !py-1.5 text-xs flex items-center gap-1.5">
               <Printer className="w-4 h-4" /> 인쇄하기
             </button>
           </div>
 
-          <div id="pamphlet-print-area" className="space-y-3">
-            <div className="text-center border-b-2 border-brand-100 pb-3">
-              <h3 className="text-2xl font-bold text-brand-700">수술 전 연하 재활 운동</h3>
-              <p className="text-sm text-slate-500 mt-1">이비인후과 · 두경부외과</p>
+          <div id="pamphlet-print-area" className="space-y-2.5">
+            <div className="text-center border-b-2 border-brand-100 pb-2.5">
+              <h3 className="text-xl font-bold text-brand-700">수술 전 연하 재활 운동</h3>
+              <p className="text-xs text-slate-500 mt-1">이비인후과 · 두경부외과</p>
             </div>
 
             {includedExercises.map((ex, i) => {
               const Icon = ICONS[ex.icon] ?? Sparkles;
+              const imageFile = EXERCISE_IMAGES[ex.id];
               return (
-                <div key={ex.id} className="rounded-xl border-2 border-slate-200 p-4 flex gap-3">
-                  <div className="w-10 h-10 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1 space-y-1.5 min-w-0">
-                    <p className="text-xl font-bold text-slate-800">
+                <div key={ex.id} className="rounded-xl border-2 border-slate-200 p-3 flex gap-2.5">
+                  {imageFile ? (
+                    <img
+                      src={`/exercise-images/${imageFile}`}
+                      alt={ex.title}
+                      className="w-14 h-14 rounded-lg object-cover flex-shrink-0 border border-slate-200"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1 min-w-0">
+                    <p className="text-lg font-bold text-slate-800">
                       {i + 1}. {ex.title}
                     </p>
-                    <ul className="space-y-1 list-none">
+                    <ul className="space-y-0.5 list-none">
                       {ex.detail.map((d, j) => (
-                        <li key={j} className="text-lg text-slate-700 leading-relaxed">
+                        <li key={j} className="text-base text-slate-700 leading-relaxed">
                           {d}
                         </li>
                       ))}
                     </ul>
                     {ex.note && (
-                      <p className="text-base text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-1.5">
-                        ⚠ {ex.note}
-                      </p>
+                      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 mt-1">⚠ {ex.note}</p>
                     )}
                   </div>
                 </div>
@@ -268,11 +333,11 @@ function SwallowPamphletGenerator() {
             })}
 
             {result.warning && (
-              <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 flex gap-3 items-start">
-                <AlertTriangle className="w-8 h-8 text-red-600 flex-shrink-0" />
+              <div className="rounded-xl border-2 border-red-300 bg-red-50 p-3 flex gap-2.5 items-start">
+                <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0" />
                 <div>
-                  <p className="text-xl font-bold text-red-700">[수술 후 주의]</p>
-                  <p className="text-lg text-red-700 leading-relaxed mt-1">{result.warning}</p>
+                  <p className="text-lg font-bold text-red-700">[수술 후 주의]</p>
+                  <p className="text-base text-red-700 leading-relaxed mt-0.5">{result.warning}</p>
                 </div>
               </div>
             )}
