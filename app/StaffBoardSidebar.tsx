@@ -21,19 +21,34 @@ export default function StaffBoardSidebar() {
 
   if (!user || !content.trim()) return null;
 
+  const body = (
+    <>
+      <pre className="whitespace-pre-wrap font-sans text-xs text-slate-600 leading-relaxed">{content}</pre>
+      {updatedAt && (
+        <p className="text-[10px] text-slate-300 mt-3">업데이트: {new Date(updatedAt).toLocaleString("ko-KR")}</p>
+      )}
+    </>
+  );
+
   return (
-    <aside className="hidden 2xl:block fixed top-20 right-6 w-72 z-0">
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-slate-700">Staff 일정 / 공지</h3>
+    <>
+      {/* 큰 화면: 옆에 고정 표시 */}
+      <aside className="hidden 2xl:block fixed top-20 right-6 w-72 z-0">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-slate-700">Staff 일정 / 공지</h3>
+          </div>
+          {body}
         </div>
-        <pre className="whitespace-pre-wrap font-sans text-xs text-slate-600 leading-relaxed">{content}</pre>
-        {updatedAt && (
-          <p className="text-[10px] text-slate-300 mt-3">
-            업데이트: {new Date(updatedAt).toLocaleString("ko-KR")}
-          </p>
-        )}
+      </aside>
+
+      {/* 모바일/태블릿: 본문 상단에 펼쳐보는 카드로 표시 */}
+      <div className="2xl:hidden max-w-6xl mx-auto px-4 pt-4">
+        <details className="acc" open>
+          <summary>📌 Staff 일정 / 공지</summary>
+          <div className="acc-body">{body}</div>
+        </details>
       </div>
-    </aside>
+    </>
   );
 }

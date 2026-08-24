@@ -6,8 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { LabIdeaComment } from "@/lib/types";
 
 const PAMPHLET_IDEAS = [
-  { title: "Decannulation 이후 dressing 방법", desc: "기관절개관 발관 후 상처 관리법 안내" },
-  { title: "Simple dressing (자가) 방법 설명", desc: "환자/보호자가 집에서 직접 드레싱하는 방법" },
   {
     title: "수술 전 연하훈련",
     desc: "원발종양 위치에 따라 멘델슨 기법, effortful swallowing 등 다양한 훈련 중 선택해서 팜플렛 제작",
