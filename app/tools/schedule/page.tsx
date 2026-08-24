@@ -296,7 +296,7 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
     setDraft((d) => d && d.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   }
   function addEntry(month: string) {
-    setDraft((d) => [...(d ?? []), { id: crypto.randomUUID(), month, date: "", category: "", topic: "", assignee: "", presenter: "" }]);
+    setDraft((d) => [...(d ?? []), { id: crypto.randomUUID(), month, date: "", category: "", topic: "", assignee: "" }]);
   }
   function deleteEntry(id: string) {
     setDraft((d) => d && d.filter((e) => e.id !== id));
@@ -354,12 +354,6 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
                     value={e.assignee}
                     onChange={(ev) => updateEntry(e.id, { assignee: ev.target.value })}
                   />
-                  <input
-                    className="input !py-1 !px-1 text-xs w-16"
-                    placeholder="발표"
-                    value={e.presenter}
-                    onChange={(ev) => updateEntry(e.id, { presenter: ev.target.value })}
-                  />
                   <button type="button" onClick={() => deleteEntry(e.id)} className="text-xs text-red-500 hover:text-red-700 px-1 flex-shrink-0">
                     삭제
                   </button>
@@ -373,12 +367,7 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
                     </span>
                   )}
                   <span className="flex-1 text-sm text-slate-700">{e.topic}</span>
-                  {(e.assignee || e.presenter) && (
-                    <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap">
-                      {e.assignee}
-                      {e.presenter ? ` → ${e.presenter}` : ""}
-                    </span>
-                  )}
+                  {e.assignee && <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap">{e.assignee}</span>}
                 </div>
               ) : (
                 <div key={e.id} className="py-2 px-2 -mx-2 rounded-lg bg-amber-50 text-amber-700 text-sm">
