@@ -14,5 +14,7 @@ export interface ResourceItem {
 }
 
 export const RESOURCES: ResourceItem[] = [
-  { title: "이비인후과 인계장", filename: "handover.pdf", type: "pdf", category: "인계장" },
+  { title: "Thyroidectomy 수술 동의서 설명", filename: "thyroidectomy-consent.pdf", type: "pdf", category: "수술 동의서 설명" },
+  { title: "Parotidectomy 수술 동의서 설명", filename: "parotidectomy-consent.pdf", type: "pdf", category: "수술 동의서 설명" },
+  { title: "수술방 업무 매뉴얼", filename: "or-manual.pdf", type: "pdf", category: "업무 매뉴얼" },
 ];
