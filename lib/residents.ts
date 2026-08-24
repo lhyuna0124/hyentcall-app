@@ -1,4 +1,6 @@
-export type Level = "R1" | "R2" | "R3" | "R4" | "ATTENDING" | "H&N RN";
+export type Level = "R1" | "R2" | "R3" | "R4" | "ATTENDING" | "H&N RN" | "SLP" | "PA";
+
+export const LEVEL_OPTIONS: Level[] = ["R1", "R2", "R3", "R4", "ATTENDING", "H&N RN", "SLP", "PA"];
 
 export interface Resident {
   id: string;
