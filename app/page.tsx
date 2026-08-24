@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { findResident } from "@/lib/residents";
+import { Resident } from "@/lib/residents";
 
 export default function LoginPage() {
   const { user, login, loading } = useAuth();
@@ -11,14 +11,18 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && user) router.replace("/notify");
   }, [loading, user, router]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const r = findResident(name, phone);
+    setSubmitting(true);
+    const list: Resident[] = await fetch("/api/residents").then((r) => r.json());
+    setSubmitting(false);
+    const r = list.find((x) => x.name === name.trim() && x.phoneLast4 === phone.trim());
     if (!r) {
       setError("이름 또는 전화번호 뒷자리가 일치하지 않습니다.");
       return;
@@ -50,11 +54,11 @@ export default function LoginPage() {
           />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" className="btn w-full">
-          로그인
+        <button type="submit" className="btn w-full" disabled={submitting}>
+          {submitting ? "확인 중..." : "로그인"}
         </button>
         <p className="text-xs text-slate-400 text-center">
-          계정 목록은 관리자가 lib/residents.ts 에서 관리합니다.
+          계정 목록은 관리자 화면(계정 관리)에서 관리합니다.
         </p>
       </form>
     </div>

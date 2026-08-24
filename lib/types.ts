@@ -114,6 +114,42 @@ export interface ConsentComment {
   text: string;
 }
 
+// --- 외래 진료 시간표 ---
+export type ClinicSite = "구리" | "서울";
+export const CLINIC_DAYS = ["월", "화", "수", "목", "금"] as const;
+export type ClinicDay = (typeof CLINIC_DAYS)[number];
+
+export interface ClinicScheduleRow {
+  id: string;
+  doctorName: string;
+  // key: `${요일}-AM` / `${요일}-PM` (예: "월-AM") -> 자유 기술 ("●"=진료, "수술"=수술로 외래 없음, "서울"/"구리"=타 병원 근무 등)
+  slots: Record<string, string>;
+  saturdayWeek: string; // 예: "2주차" (비어있으면 그 주 토요일 외래 없음)
+}
+
+export interface ClinicSchedule {
+  site: ClinicSite;
+  rows: ClinicScheduleRow[];
+  note: string; // 예: "1주차 토요일 외래 없음"
+  updatedAt: string;
+}
+
+// --- 컨퍼런스 스케쥴 ---
+export interface ConferenceEntry {
+  id: string;
+  month: string; // 화면에 묶어서 표시할 기준 (예: "9월") - 실제 날짜가 다음달로 넘어가도(전공의 시험 등) 원래 속한 달 기준
+  date: string; // 자유 기술 (예: "9월 7일", "10월 2일", "추석 9월 24~27일")
+  category: string; // 이과/비과/두경부/Staff lecture/전공의 N차 시험/공지 등 자유 기술
+  topic: string; // 주제
+  assignee: string; // 담당 연차 또는 발표자 이름
+  presenter: string; // 발표 연차
+}
+
+export interface ConferenceSchedule {
+  entries: ConferenceEntry[];
+  updatedAt: string;
+}
+
 // --- MDT 환자 목록 ---
 export type HospitalSite = "구리" | "서울";
 
