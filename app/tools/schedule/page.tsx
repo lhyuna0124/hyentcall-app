@@ -37,8 +37,7 @@ export default function SchedulePage() {
   }, [loading, user, router]);
 
   const [tab, setTab] = useState<"clinic" | "conference">("clinic");
-  const [mobileViewMode, setMobileViewMode] = useState<"day" | "combinedDay" | "table">("day");
-  const [sharedDay, setSharedDay] = useState<string>(CLINIC_DAYS[0]);
+  const [mobileViewMode, setMobileViewMode] = useState<"day" | "table">("day");
 
   if (loading || !user) return null;
 
@@ -64,7 +63,6 @@ export default function SchedulePage() {
             {(
               [
                 { v: "day", label: "📅 요일별 카드" },
-                { v: "combinedDay", label: "🔀 서울·구리 한번에" },
                 { v: "table", label: "📋 전체 표로 보기" },
               ] as const
             ).map((o) => (
@@ -81,32 +79,8 @@ export default function SchedulePage() {
             ))}
           </div>
 
-          {mobileViewMode === "combinedDay" && (
-            <div className="sm:hidden flex gap-1 overflow-x-auto pb-1">
-              {[...CLINIC_DAYS, "토"].map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setSharedDay(d)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold flex-shrink-0 ${
-                    sharedDay === d ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-          )}
-
           {SITES.map((site) => (
-            <ClinicSiteTable
-              key={site}
-              site={site}
-              isAdmin={!!user.isAdmin}
-              sharedDay={mobileViewMode === "combinedDay" ? sharedDay : undefined}
-              onSharedDayChange={mobileViewMode === "combinedDay" ? setSharedDay : undefined}
-              mobileFullTable={mobileViewMode === "table"}
-            />
+            <ClinicSiteTable key={site} site={site} isAdmin={!!user.isAdmin} mobileFullTable={mobileViewMode === "table"} />
           ))}
         </div>
       ) : (
@@ -119,14 +93,10 @@ export default function SchedulePage() {
 function ClinicSiteTable({
   site,
   isAdmin,
-  sharedDay,
-  onSharedDayChange,
   mobileFullTable,
 }: {
   site: ClinicSite;
   isAdmin: boolean;
-  sharedDay?: string;
-  onSharedDayChange?: (d: string) => void;
   mobileFullTable?: boolean;
 }) {
   const [schedule, setSchedule] = useState<ClinicSchedule | null>(null);
@@ -204,9 +174,7 @@ function ClinicSiteTable({
         view.note && <p className="text-xs text-amber-600">※ {view.note}</p>
       )}
 
-      {!editing && !mobileFullTable && (
-        <MobileClinicDayView view={view} sharedDay={sharedDay} onSharedDayChange={onSharedDayChange} />
-      )}
+      {!editing && !mobileFullTable && <MobileClinicDayView view={view} />}
 
       <div className={editing || mobileFullTable ? "overflow-x-auto" : "overflow-x-auto hidden sm:block"}>
       <table className="min-w-[880px] text-xs border-collapse">
@@ -308,40 +276,27 @@ function ClinicSiteTable({
   );
 }
 
-function MobileClinicDayView({
-  view,
-  sharedDay,
-  onSharedDayChange,
-}: {
-  view: ClinicSchedule;
-  sharedDay?: string;
-  onSharedDayChange?: (d: string) => void;
-}) {
+function MobileClinicDayView({ view }: { view: ClinicSchedule }) {
   const DAY_TABS = [...CLINIC_DAYS, "토"] as const;
-  const [localDay, setLocalDay] = useState<(typeof DAY_TABS)[number]>(DAY_TABS[0]);
-  const isControlled = sharedDay !== undefined && onSharedDayChange;
-  const day = isControlled ? sharedDay! : localDay;
-  const setDay = isControlled ? onSharedDayChange! : setLocalDay;
+  const [day, setDay] = useState<(typeof DAY_TABS)[number]>(DAY_TABS[0]);
   const isSat = day === "토";
 
   return (
     <div className="sm:hidden space-y-2">
-      {!isControlled && (
-        <div className="flex gap-1 overflow-x-auto pb-1">
-          {DAY_TABS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDay(d)}
-              className={`px-3 py-1.5 rounded-full text-sm font-semibold flex-shrink-0 ${
-                day === d ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {DAY_TABS.map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => setDay(d)}
+            className={`px-3 py-1.5 rounded-full text-sm font-semibold flex-shrink-0 ${
+              day === d ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
       <div className="space-y-1.5">
         {view.rows.map((r) =>
           isSat ? (

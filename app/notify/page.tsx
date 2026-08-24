@@ -765,13 +765,13 @@ export default function NotifyPage() {
 
   return (
     <div className="space-y-3 pb-24">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-brand-700">🚑 응급 노티 작성</h1>
-        <div className="flex items-center gap-2">
-          <span className={`chip ${riskColor(risk)}`}>위험도: {riskLabel(risk)}</span>
-          <button type="button" onClick={saveDraft} className="btn-outline !px-3 !py-1.5 text-xs">임시저장</button>
-          {draftSaved && <span className="text-xs text-emerald-600">저장됨</span>}
-          <button type="button" onClick={startNewPatient} className="btn-outline !px-3 !py-1.5 text-xs">새 환자 작성하기</button>
+      <div className="flex items-center justify-between flex-wrap gap-y-2">
+        <h1 className="text-xl font-bold text-brand-700 whitespace-nowrap">🚑 응급 노티 작성</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`chip ${riskColor(risk)} whitespace-nowrap`}>위험도: {riskLabel(risk)}</span>
+          <button type="button" onClick={saveDraft} className="btn-outline !px-3 !py-1.5 text-xs whitespace-nowrap">임시저장</button>
+          {draftSaved && <span className="text-xs text-emerald-600 whitespace-nowrap">저장됨</span>}
+          <button type="button" onClick={startNewPatient} className="btn-outline !px-3 !py-1.5 text-xs whitespace-nowrap">새 환자 작성하기</button>
         </div>
       </div>
 

@@ -365,9 +365,9 @@ export default function MdtPage() {
 
   return (
     <div className="space-y-4 pb-24">
-      <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-xl font-bold text-brand-700">🧑‍⚕️ 다학제(MDT) 환자 정리</h1>
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-y-2 print:hidden">
+        <h1 className="text-xl font-bold text-brand-700 whitespace-nowrap">🧑‍⚕️ 다학제(MDT) 환자 정리</h1>
+        <div className="flex gap-2 flex-wrap">
           {loadedId && (
             <button
               className="btn-outline !px-3 !py-1.5 text-xs !text-red-500 !border-red-200"

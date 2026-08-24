@@ -54,14 +54,14 @@ export default function ResourcesPage() {
                   href={`/resources/${r.filename}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 transition"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 transition flex-wrap"
                 >
                   <span className="text-2xl">📄</span>
-                  <div>
+                  <div className="flex-1 min-w-[140px]">
                     <p className="text-sm font-medium text-slate-700">{r.title}</p>
                     {r.description && <p className="text-xs text-slate-400">{r.description}</p>}
                   </div>
-                  <span className="ml-auto text-xs text-brand-600">새 창에서 열기 →</span>
+                  <span className="ml-auto text-xs text-brand-600 whitespace-nowrap">새 창에서 열기 →</span>
                 </a>
               ))}
           </div>
