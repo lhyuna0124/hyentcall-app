@@ -28,6 +28,7 @@ export default function NavBar() {
     { href: "/tools/us-report", label: "US Report", icon: "🩻" },
     { href: "/tools/resources", label: "자료실", icon: "📁" },
     { href: "/tools/schedule", label: "스케쥴", icon: "📅" },
+    { href: "/tools/consent-forms", label: "동의서", icon: "📝" },
     { href: "/tools/lab", label: "실험실", icon: "🧪" },
     { href: "/stats", label: "통계", icon: "📊" },
     ...(user.isAdmin ? [{ href: "/admin", label: "관리자", icon: "⚙️" }] : []),
@@ -54,7 +55,7 @@ export default function NavBar() {
               >
                 <span>{t.icon}</span>
                 {t.label}
-                {t.href === "/tools/lab" && hasUnreadConsentComments && (
+                {t.href === "/tools/consent-forms" && hasUnreadConsentComments && (
                   <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500" title="새 댓글" />
                 )}
               </Link>

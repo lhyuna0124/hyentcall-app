@@ -142,12 +142,21 @@ export interface ConferenceEntry {
   category: string; // 이과/비과/두경부/Staff lecture/전공의 N차 시험/공지 등 자유 기술
   topic: string; // 주제
   assignee: string; // 담당 연차 또는 발표자 이름
-  presenter: string; // 발표 연차
 }
 
 export interface ConferenceSchedule {
   entries: ConferenceEntry[];
   updatedAt: string;
+}
+
+// --- 실험실: 다음에 만들 기능에 대한 의견 남기기 ---
+export interface LabIdeaComment {
+  id: string;
+  createdAt: string;
+  authorId: string;
+  authorName: string;
+  authorLevel: string;
+  text: string;
 }
 
 // --- MDT 환자 목록 ---

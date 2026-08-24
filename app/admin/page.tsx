@@ -74,7 +74,8 @@ export default function AdminPage() {
     persistResidents(residents.filter((r) => r.id !== id));
   }
 
-  const residentList = useMemo(() => residents.filter((r) => !r.isAdmin), [residents]);
+  // 전공의 요약/역량평가는 레지던트(R1~R4)만 대상으로 합니다 (H&N RN 등 다른 계정은 제외).
+  const residentList = useMemo(() => residents.filter((r) => !r.isAdmin && r.level.startsWith("R")), [residents]);
 
   const [evaluations, setEvaluations] = useState<EvaluationRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
