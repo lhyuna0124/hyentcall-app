@@ -82,6 +82,24 @@ export interface FeedbackRecord {
   message: string;
 }
 
+// --- 실험실: 수술동의서 와꾸 (준비 중인 기능을 미리 테스트해보는 공간) ---
+export interface ConsentTemplate {
+  procedureId: string;
+  procedureName: string;
+  content: string; // 관리자가 자유 기술하는 와꾸 내용
+  updatedAt: string;
+}
+
+export interface ConsentComment {
+  id: string;
+  createdAt: string;
+  procedureId: string;
+  authorId: string;
+  authorName: string;
+  authorLevel: string;
+  text: string;
+}
+
 // --- MDT 환자 목록 ---
 export type HospitalSite = "구리" | "서울";
 
