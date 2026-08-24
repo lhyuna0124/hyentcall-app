@@ -340,99 +340,106 @@ export default function AdminPage() {
       <h1 className="text-xl font-bold text-brand-700">⚙️ 관리자</h1>
 
       {/* Staff 일정 / 공지 게시판 */}
-      <section className="card space-y-2">
-        <h2 className="font-medium text-slate-700">Staff 일정 / 공지 게시판</h2>
-        <p className="text-xs text-slate-400">
-          여기에 적은 내용이 모든 로그인 사용자 화면 오른쪽 사이드바(넓은 화면에서만)에 표시됩니다. 예: 교수님 해외학회/휴진 안내, 주간 staff 순번 등을 자유 형식으로 적어두세요.
-        </p>
-        <textarea
-          className="input min-h-[140px] font-mono text-sm"
-          placeholder={"예)\n8/30-9/5 이현아 교수님 해외학회, 노티 X\n\n[주간 Staff]\n9/5-9/11 곽진혜\n9/12-9/18 이현아\n9/19-9/25 박민규"}
-          value={boardContent}
-          onChange={(e) => setBoardContent(e.target.value)}
-        />
-        <div className="flex items-center gap-3">
-          <button className="btn" onClick={saveBoard} type="button" disabled={boardSaving}>
-            {boardSaving ? "저장 중..." : "게시판 저장"}
-          </button>
-          {boardSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
+      <details className="acc">
+        <summary>Staff 일정 / 공지 게시판</summary>
+        <div className="acc-body">
+          <p className="text-xs text-slate-400">
+            여기에 적은 내용이 모든 로그인 사용자 화면 오른쪽 사이드바(넓은 화면에서만)에 표시됩니다. 예: 교수님 해외학회/휴진 안내, 주간 staff 순번 등을 자유 형식으로 적어두세요.
+          </p>
+          <textarea
+            className="input min-h-[140px] font-mono text-sm"
+            placeholder={"예)\n8/30-9/5 이현아 교수님 해외학회, 노티 X\n\n[주간 Staff]\n9/5-9/11 곽진혜\n9/12-9/18 이현아\n9/19-9/25 박민규"}
+            value={boardContent}
+            onChange={(e) => setBoardContent(e.target.value)}
+          />
+          <div className="flex items-center gap-3">
+            <button className="btn" onClick={saveBoard} type="button" disabled={boardSaving}>
+              {boardSaving ? "저장 중..." : "게시판 저장"}
+            </button>
+            {boardSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
+          </div>
         </div>
-      </section>
+      </details>
 
       {/* 바로가기 링크 (우측 하단 위젯) */}
-      <section className="card space-y-3">
-        <h2 className="font-medium text-slate-700">바로가기 링크 (우측 하단 사이드바)</h2>
-        <p className="text-xs text-slate-400">
-          여기에 추가한 링크는 모든 로그인 사용자 화면 우측 하단의 "바로가기" 사이드바 최상단에 표시됩니다 (2-3개 권장). 각 사용자는 그 아래 "내 바로가기"에서 본인만의 링크를 직접 추가할 수 있습니다. 예: 논문 아카이브 시스템 등.
-        </p>
-        <div className="space-y-2">
-          {quickLinks.map((l) => (
-            <div key={l.id} className="flex items-center gap-2">
-              <input
-                className="input flex-1"
-                placeholder="이름 (예: 논문 아카이브 시스템)"
-                value={l.label}
-                onChange={(e) => updateQuickLink(l.id, { label: e.target.value })}
-              />
-              <input
-                className="input flex-1"
-                placeholder="https://..."
-                value={l.url}
-                onChange={(e) => updateQuickLink(l.id, { url: e.target.value })}
-              />
-              <button
-                type="button"
-                onClick={() => removeQuickLink(l.id)}
-                className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-1.5 flex-shrink-0"
-              >
-                삭제
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="btn-outline" type="button" onClick={addQuickLink}>
-            + 링크 추가
-          </button>
-          <button className="btn" type="button" onClick={saveQuickLinks} disabled={quickLinksSaving}>
-            {quickLinksSaving ? "저장 중..." : "저장"}
-          </button>
-          {quickLinksSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
-        </div>
-      </section>
-
-      {/* 건의사항함 */}
-      <section className="card space-y-2">
-        <h2 className="font-medium text-slate-700">건의사항함 ({feedbackList.length}건)</h2>
-        <div className="space-y-2 max-h-72 overflow-y-auto">
-          {feedbackList.length === 0 && <p className="text-sm text-slate-400">접수된 건의사항이 없습니다.</p>}
-          {feedbackList.map((f) => (
-            <div key={f.id} className="text-sm border-b border-slate-100 pb-2 last:border-0">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">
-                  {f.residentName} <span className="text-slate-400 font-normal">· {new Date(f.createdAt).toLocaleString("ko-KR")}</span>
-                </span>
+      <details className="acc">
+        <summary>바로가기 링크 (우측 하단 사이드바)</summary>
+        <div className="acc-body">
+          <p className="text-xs text-slate-400">
+            여기에 추가한 링크는 모든 로그인 사용자 화면 우측 하단의 "바로가기" 사이드바 최상단에 표시됩니다 (2-3개 권장). 각 사용자는 그 아래 "내 바로가기"에서 본인만의 링크를 직접 추가할 수 있습니다. 예: 논문 아카이브 시스템 등.
+          </p>
+          <div className="space-y-2">
+            {quickLinks.map((l) => (
+              <div key={l.id} className="flex items-center gap-2">
+                <input
+                  className="input flex-1"
+                  placeholder="이름 (예: 논문 아카이브 시스템)"
+                  value={l.label}
+                  onChange={(e) => updateQuickLink(l.id, { label: e.target.value })}
+                />
+                <input
+                  className="input flex-1"
+                  placeholder="https://..."
+                  value={l.url}
+                  onChange={(e) => updateQuickLink(l.id, { url: e.target.value })}
+                />
                 <button
-                  onClick={() => handleDeleteFeedback(f.id)}
-                  className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-0.5"
                   type="button"
+                  onClick={() => removeQuickLink(l.id)}
+                  className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-1.5 flex-shrink-0"
                 >
                   삭제
                 </button>
               </div>
-              <p className="text-slate-600 whitespace-pre-wrap mt-1">{f.message}</p>
-            </div>
-          ))}
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="btn-outline" type="button" onClick={addQuickLink}>
+              + 링크 추가
+            </button>
+            <button className="btn" type="button" onClick={saveQuickLinks} disabled={quickLinksSaving}>
+              {quickLinksSaving ? "저장 중..." : "저장"}
+            </button>
+            {quickLinksSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
+          </div>
         </div>
-      </section>
+      </details>
+
+      {/* 건의사항함 */}
+      <details className="acc">
+        <summary>건의사항함 ({feedbackList.length}건)</summary>
+        <div className="acc-body">
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {feedbackList.length === 0 && <p className="text-sm text-slate-400">접수된 건의사항이 없습니다.</p>}
+            {feedbackList.map((f) => (
+              <div key={f.id} className="text-sm border-b border-slate-100 pb-2 last:border-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">
+                    {f.residentName} <span className="text-slate-400 font-normal">· {new Date(f.createdAt).toLocaleString("ko-KR")}</span>
+                  </span>
+                  <button
+                    onClick={() => handleDeleteFeedback(f.id)}
+                    className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-0.5"
+                    type="button"
+                  >
+                    삭제
+                  </button>
+                </div>
+                <p className="text-slate-600 whitespace-pre-wrap mt-1">{f.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </details>
 
       {/* 계정 관리 */}
-      <section className="card space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium text-slate-700">계정 관리 ({residents.length}명)</h2>
-          {residentsSaving && <span className="text-xs text-slate-400">저장 중...</span>}
-        </div>
-        <p className="text-xs text-slate-400">이름 + 휴대폰 뒷 4자리로 로그인하는 계정 목록입니다. 여기서 추가/수정/삭제하면 바로 반영됩니다.</p>
+      <details className="acc">
+        <summary>계정 관리 ({residents.length}명)</summary>
+        <div className="acc-body">
+        <p className="text-xs text-slate-400">
+          이름 + 휴대폰 뒷 4자리로 로그인하는 계정 목록입니다. 여기서 추가/수정/삭제하면 바로 반영됩니다.
+          {residentsSaving && <span className="ml-2 text-slate-400">저장 중...</span>}
+        </p>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-slate-200">
@@ -543,7 +550,8 @@ export default function AdminPage() {
             </button>
           </div>
         )}
-      </section>
+        </div>
+      </details>
 
       {/* 전공의 요약 */}
       <section className="card">
@@ -649,11 +657,11 @@ export default function AdminPage() {
       </section>
 
       {/* 평가 기록 */}
-      <section className="card">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium text-slate-700">평가 기록</h2>
+      <details className="acc">
+        <summary>평가 기록 ({evaluations.length}건)</summary>
+        <div className="acc-body">
           {evaluations.length > 0 && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 justify-end">
               <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
                 <input
                   type="checkbox"
@@ -672,83 +680,86 @@ export default function AdminPage() {
               </button>
             </div>
           )}
-        </div>
-        <div className="space-y-2 max-h-72 overflow-y-auto">
-          {evaluations.length === 0 && <p className="text-sm text-slate-400">평가 기록이 없습니다.</p>}
-          {evaluations.map((e) => (
-            <div key={e.id} className="text-sm border-b border-slate-100 pb-2 last:border-0 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={selectedEvalIds.includes(e.id)} onChange={() => toggleEvalSelect(e.id)} />
-                <div>
-                  <span className="font-medium">{e.residentName}</span>
-                  <span className="text-slate-400 mx-1">·</span>
-                  <span className="text-slate-500">{e.diagnosisLabel}</span>
-                  {e.note && <span className="text-slate-400 ml-2">- {e.note}</span>}
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {evaluations.length === 0 && <p className="text-sm text-slate-400">평가 기록이 없습니다.</p>}
+            {evaluations.map((e) => (
+              <div key={e.id} className="text-sm border-b border-slate-100 pb-2 last:border-0 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={selectedEvalIds.includes(e.id)} onChange={() => toggleEvalSelect(e.id)} />
+                  <div>
+                    <span className="font-medium">{e.residentName}</span>
+                    <span className="text-slate-400 mx-1">·</span>
+                    <span className="text-slate-500">{e.diagnosisLabel}</span>
+                    {e.note && <span className="text-slate-400 ml-2">- {e.note}</span>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">{COMPETENCY_LABEL[e.competency]}</span>
+                  <button
+                    onClick={() => handleDeleteEvaluation(e.id)}
+                    className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-0.5"
+                    type="button"
+                  >
+                    삭제
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500">{COMPETENCY_LABEL[e.competency]}</span>
-                <button
-                  onClick={() => handleDeleteEvaluation(e.id)}
-                  className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-0.5"
-                  type="button"
-                >
-                  삭제
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </section>
+      </details>
 
       {/* 알고리즘 수정 */}
-      <section className="card space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium text-slate-700">응급질환 위험도 알고리즘 수정</h2>
-          <button className="btn" onClick={saveAlgorithm} type="button">
-            저장
-          </button>
-        </div>
-        {algoSaved && <p className="text-sm text-emerald-600">저장되었습니다.</p>}
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-slate-400 border-b border-slate-200">
-              <th className="py-2">진단명</th>
-              <th>기본 위험도</th>
-              <th>즉시 입원 대상</th>
-            </tr>
-          </thead>
-          <tbody>
-            {diagnoses.map((d) => (
-              <tr key={d.id} className="border-b border-slate-100 last:border-0">
-                <td className="py-2">{d.label}</td>
-                <td>
-                  <select
-                    className="input !py-1 !w-32"
-                    value={d.baseRisk}
-                    onChange={(e) => updateDiagnosis(d.id, { baseRisk: e.target.value as RiskLevel })}
-                  >
-                    <option value="LOW">낮음</option>
-                    <option value="MEDIUM">중간</option>
-                    <option value="HIGH">높음</option>
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={d.immediateAdmit}
-                    onChange={(e) => updateDiagnosis(d.id, { immediateAdmit: e.target.checked })}
-                  />
-                </td>
+      <details className="acc">
+        <summary>응급질환 위험도 알고리즘 수정</summary>
+        <div className="acc-body">
+          <div className="flex items-center justify-end gap-2">
+            {algoSaved && <span className="text-sm text-emerald-600">저장되었습니다.</span>}
+            <button className="btn" onClick={saveAlgorithm} type="button">
+              저장
+            </button>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-400 border-b border-slate-200">
+                <th className="py-2">진단명</th>
+                <th>기본 위험도</th>
+                <th>즉시 입원 대상</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+            </thead>
+            <tbody>
+              {diagnoses.map((d) => (
+                <tr key={d.id} className="border-b border-slate-100 last:border-0">
+                  <td className="py-2">{d.label}</td>
+                  <td>
+                    <select
+                      className="input !py-1 !w-32"
+                      value={d.baseRisk}
+                      onChange={(e) => updateDiagnosis(d.id, { baseRisk: e.target.value as RiskLevel })}
+                    >
+                      <option value="LOW">낮음</option>
+                      <option value="MEDIUM">중간</option>
+                      <option value="HIGH">높음</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={d.immediateAdmit}
+                      onChange={(e) => updateDiagnosis(d.id, { immediateAdmit: e.target.checked })}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
       {/* 다학제(MDT) 환자 목록 */}
-      <section className="card space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium text-slate-700">다학제(MDT) 환자 목록 ({mdtFiltered.length}명)</h2>
+      <details className="acc">
+        <summary>다학제(MDT) 환자 목록 ({mdtFiltered.length}명)</summary>
+        <div className="acc-body">
+        <div className="flex items-center justify-end">
           <select className="input w-40" value={mdtSiteFilter} onChange={(e) => setMdtSiteFilter(e.target.value as any)}>
             <option value="전체">전체 병원</option>
             <option value="구리">구리병원</option>
@@ -795,7 +806,8 @@ export default function AdminPage() {
             );
           })}
         </div>
-      </section>
+        </div>
+      </details>
     </div>
   );
 }

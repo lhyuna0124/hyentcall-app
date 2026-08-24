@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { CLINIC_DAYS, ClinicSchedule, ClinicSite, ConferenceEntry, ConferenceSchedule } from "@/lib/types";
 
-const SITES: ClinicSite[] = ["구리", "서울"];
+const SITES: ClinicSite[] = ["서울", "구리"];
 
 function cellClass(value: string) {
   if (value === "●") return "bg-emerald-50 text-emerald-700";
@@ -18,6 +18,15 @@ function tabClass(active: boolean) {
   return active
     ? "px-3 py-1.5 rounded-full bg-brand-700 text-white text-sm font-semibold"
     : "px-3 py-1.5 rounded-full border border-slate-300 text-sm text-slate-600 hover:bg-slate-50";
+}
+
+function categoryClass(category: string) {
+  if (category.includes("이과")) return "bg-blue-100 text-blue-700";
+  if (category.includes("비과")) return "bg-emerald-100 text-emerald-700";
+  if (category.includes("두경부")) return "bg-purple-100 text-purple-700";
+  if (category.includes("Staff")) return "bg-amber-100 text-amber-700";
+  if (category.includes("시험")) return "bg-rose-100 text-rose-700";
+  return "bg-slate-100 text-slate-600";
 }
 
 export default function SchedulePage() {
@@ -47,29 +56,31 @@ export default function SchedulePage() {
         </button>
       </div>
 
-      {tab === "clinic" ? <ClinicScheduleSection isAdmin={!!user.isAdmin} /> : <ConferenceScheduleSection isAdmin={!!user.isAdmin} />}
+      {tab === "clinic" ? (
+        <div className="space-y-4">
+          {SITES.map((site) => (
+            <ClinicSiteTable key={site} site={site} isAdmin={!!user.isAdmin} />
+          ))}
+        </div>
+      ) : (
+        <ConferenceScheduleSection isAdmin={!!user.isAdmin} />
+      )}
     </div>
   );
 }
 
-function ClinicScheduleSection({ isAdmin }: { isAdmin: boolean }) {
-  const [site, setSite] = useState<ClinicSite>("구리");
+function ClinicSiteTable({ site, isAdmin }: { site: ClinicSite; isAdmin: boolean }) {
   const [schedule, setSchedule] = useState<ClinicSchedule | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ClinicSchedule | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  function load() {
+  useEffect(() => {
     fetch(`/api/clinic-schedule?site=${site}`)
       .then((r) => r.json())
       .then(setSchedule)
       .catch(() => {});
-  }
-  useEffect(() => {
-    setEditing(false);
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [site]);
 
   function startEditing() {
@@ -110,137 +121,140 @@ function ClinicScheduleSection({ isAdmin }: { isAdmin: boolean }) {
   }
 
   const view = editing ? draft : schedule;
+  if (!view) return null;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        {SITES.map((s) => (
-          <button key={s} type="button" onClick={() => setSite(s)} className={tabClass(site === s)}>
-            {s}
+    <section className="card space-y-2 overflow-x-auto">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-slate-800">{site} 외래 진료 시간표</h2>
+        {isAdmin && !editing && (
+          <button type="button" onClick={startEditing} className="btn-outline !px-3 !py-1 text-xs flex-shrink-0">
+            ✏️ 편집
           </button>
-        ))}
+        )}
       </div>
 
-      {view && (
-        <section className="card space-y-2 overflow-x-auto">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-slate-800">{site} 외래 진료 시간표</h2>
-            {isAdmin && !editing && (
-              <button type="button" onClick={startEditing} className="btn-outline !px-3 !py-1 text-xs flex-shrink-0">
-                ✏️ 편집
-              </button>
-            )}
-          </div>
-
-          {editing ? (
-            <input
-              className="input !py-1 text-xs"
-              placeholder="비고 (예: 1주차 토요일 외래 없음)"
-              value={draft?.note ?? ""}
-              onChange={(e) => setDraft((d) => d && { ...d, note: e.target.value })}
-            />
-          ) : (
-            view.note && <p className="text-xs text-amber-600">※ {view.note}</p>
-          )}
-
-          <table className="min-w-[880px] text-xs border-collapse">
-            <thead>
-              <tr>
-                <th className="border border-slate-200 px-2 py-1 bg-slate-50 text-left">이름</th>
-                {CLINIC_DAYS.map((d) => (
-                  <th key={d} colSpan={2} className="border border-slate-200 px-2 py-1 bg-slate-50">
-                    {d}
-                  </th>
-                ))}
-                <th className="border border-slate-200 px-2 py-1 bg-slate-50">토</th>
-              </tr>
-              <tr>
-                <th className="border border-slate-200 bg-slate-50"></th>
-                {CLINIC_DAYS.map((d) => (
-                  <Fragment key={d}>
-                    <th className="border border-slate-200 px-1 py-0.5 bg-slate-50 font-normal">오전</th>
-                    <th className="border border-slate-200 px-1 py-0.5 bg-slate-50 font-normal">오후</th>
-                  </Fragment>
-                ))}
-                <th className="border border-slate-200 px-1 py-0.5 bg-slate-50 font-normal">주차</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="border border-slate-200 px-2 py-1 font-medium whitespace-nowrap">
-                    {editing ? (
-                      <input
-                        className="input !py-0.5 !px-1 text-xs w-20"
-                        value={r.doctorName}
-                        onChange={(e) => updateDoctorName(r.id, e.target.value)}
-                      />
-                    ) : (
-                      r.doctorName
-                    )}
-                  </td>
-                  {CLINIC_DAYS.map((d) => (
-                    <Fragment key={d}>
-                      {(["AM", "PM"] as const).map((slot) => {
-                        const key = `${d}-${slot}`;
-                        const value = r.slots[key] ?? "";
-                        return editing ? (
-                          <td key={slot} className="border border-slate-200 p-0.5">
-                            <input
-                              className="input !py-0.5 !px-1 text-xs w-12 text-center"
-                              value={value}
-                              onChange={(e) => updateCell(r.id, key, e.target.value)}
-                            />
-                          </td>
-                        ) : (
-                          <td key={slot} className={`border border-slate-200 px-2 py-1 text-center ${cellClass(value)}`}>
-                            {value || "-"}
-                          </td>
-                        );
-                      })}
-                    </Fragment>
-                  ))}
-                  {editing ? (
-                    <td className="border border-slate-200 p-0.5">
-                      <input
-                        className="input !py-0.5 !px-1 text-xs w-16 text-center"
-                        value={r.saturdayWeek}
-                        onChange={(e) => updateSaturday(r.id, e.target.value)}
-                      />
-                    </td>
-                  ) : (
-                    <td className="border border-slate-200 px-2 py-1 text-center">{r.saturdayWeek || "-"}</td>
-                  )}
-                  {editing && (
-                    <td className="pl-1">
-                      <button type="button" onClick={() => deleteRow(r.id)} className="text-xs text-red-500 hover:text-red-700">
-                        삭제
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {editing && (
-            <div className="flex items-center gap-2 pt-1">
-              <button type="button" onClick={addRow} className="btn-outline !px-3 !py-1 text-xs">
-                + 의료진 추가
-              </button>
-              <button type="button" onClick={save} className="btn !px-3 !py-1 text-xs" disabled={saving}>
-                {saving ? "저장 중..." : "저장"}
-              </button>
-              <button type="button" onClick={() => setEditing(false)} className="btn-outline !px-3 !py-1 text-xs">
-                취소
-              </button>
-              {saved && <span className="text-xs text-emerald-600">저장됨</span>}
-            </div>
-          )}
-        </section>
+      {editing ? (
+        <input
+          className="input !py-1 text-xs"
+          placeholder="비고 (예: 1주차 토요일 외래 없음)"
+          value={draft?.note ?? ""}
+          onChange={(e) => setDraft((d) => d && { ...d, note: e.target.value })}
+        />
+      ) : (
+        view.note && <p className="text-xs text-amber-600">※ {view.note}</p>
       )}
-    </div>
+
+      <table className="min-w-[880px] text-xs border-collapse">
+        <thead>
+          <tr>
+            <th className="border border-slate-200 px-2 py-1 bg-slate-50 text-left">이름</th>
+            {CLINIC_DAYS.map((d) => (
+              <th key={d} colSpan={2} className="border border-slate-200 px-2 py-1 bg-slate-50">
+                {d}
+              </th>
+            ))}
+            <th className="border border-slate-200 px-2 py-1 bg-slate-50">토</th>
+          </tr>
+          <tr>
+            <th className="border border-slate-200 bg-slate-50"></th>
+            {CLINIC_DAYS.map((d) => (
+              <Fragment key={d}>
+                <th className="border border-slate-200 px-1 py-0.5 bg-slate-50 font-normal">오전</th>
+                <th className="border border-slate-200 px-1 py-0.5 bg-slate-50 font-normal">오후</th>
+              </Fragment>
+            ))}
+            <th className="border border-slate-200 px-1 py-0.5 bg-slate-50 font-normal">주차</th>
+          </tr>
+        </thead>
+        <tbody>
+          {view.rows.map((r) => (
+            <tr key={r.id}>
+              <td className="border border-slate-200 px-2 py-1 font-medium whitespace-nowrap">
+                {editing ? (
+                  <input
+                    className="input !py-0.5 !px-1 text-xs w-20"
+                    value={r.doctorName}
+                    onChange={(e) => updateDoctorName(r.id, e.target.value)}
+                  />
+                ) : (
+                  r.doctorName
+                )}
+              </td>
+              {CLINIC_DAYS.map((d) => (
+                <Fragment key={d}>
+                  {(["AM", "PM"] as const).map((slot) => {
+                    const key = `${d}-${slot}`;
+                    const value = r.slots[key] ?? "";
+                    return editing ? (
+                      <td key={slot} className="border border-slate-200 p-0.5">
+                        <input
+                          className="input !py-0.5 !px-1 text-xs w-12 text-center"
+                          value={value}
+                          onChange={(e) => updateCell(r.id, key, e.target.value)}
+                        />
+                      </td>
+                    ) : (
+                      <td key={slot} className={`border border-slate-200 px-2 py-1 text-center ${cellClass(value)}`}>
+                        {value || "-"}
+                      </td>
+                    );
+                  })}
+                </Fragment>
+              ))}
+              {editing ? (
+                <td className="border border-slate-200 p-0.5">
+                  <input
+                    className="input !py-0.5 !px-1 text-xs w-16 text-center"
+                    value={r.saturdayWeek}
+                    onChange={(e) => updateSaturday(r.id, e.target.value)}
+                  />
+                </td>
+              ) : (
+                <td className="border border-slate-200 px-2 py-1 text-center">{r.saturdayWeek || "-"}</td>
+              )}
+              {editing && (
+                <td className="pl-1">
+                  <button type="button" onClick={() => deleteRow(r.id)} className="text-xs text-red-500 hover:text-red-700">
+                    삭제
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {editing && (
+        <div className="flex items-center gap-2 pt-1">
+          <button type="button" onClick={addRow} className="btn-outline !px-3 !py-1 text-xs">
+            + 의료진 추가
+          </button>
+          <button type="button" onClick={save} className="btn !px-3 !py-1 text-xs" disabled={saving}>
+            {saving ? "저장 중..." : "저장"}
+          </button>
+          <button type="button" onClick={() => setEditing(false)} className="btn-outline !px-3 !py-1 text-xs">
+            취소
+          </button>
+          {saved && <span className="text-xs text-emerald-600">저장됨</span>}
+        </div>
+      )}
+    </section>
   );
+}
+
+function groupByMonth(entries: ConferenceEntry[]): { month: string; entries: ConferenceEntry[] }[] {
+  const groups: { month: string; entries: ConferenceEntry[] }[] = [];
+  for (const e of entries) {
+    const month = e.month || "기타";
+    let group = groups.find((g) => g.month === month);
+    if (!group) {
+      group = { month, entries: [] };
+      groups.push(group);
+    }
+    group.entries.push(e);
+  }
+  return groups;
 }
 
 function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
@@ -281,18 +295,19 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
   function updateEntry(id: string, patch: Partial<ConferenceEntry>) {
     setDraft((d) => d && d.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   }
-  function addEntry() {
-    setDraft((d) => [...(d ?? []), { id: crypto.randomUUID(), date: "", category: "", topic: "", assignee: "", presenter: "" }]);
+  function addEntry(month: string) {
+    setDraft((d) => [...(d ?? []), { id: crypto.randomUUID(), month, date: "", category: "", topic: "", assignee: "", presenter: "" }]);
   }
   function deleteEntry(id: string) {
     setDraft((d) => d && d.filter((e) => e.id !== id));
   }
 
   const entries = editing ? draft ?? [] : schedule?.entries ?? [];
+  const groups = groupByMonth(entries);
   if (!schedule) return null;
 
   return (
-    <section className="card space-y-2 overflow-x-auto">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-slate-800">컨퍼런스 스케쥴</h2>
         {isAdmin && !editing && (
@@ -302,102 +317,89 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
         )}
       </div>
 
-      <table className="min-w-[700px] text-sm border-collapse">
-        <thead>
-          <tr className="text-left text-slate-400 border-b border-slate-200">
-            <th className="py-1.5 px-2">날짜</th>
-            <th className="px-2">분류</th>
-            <th className="px-2">주제</th>
-            <th className="px-2">담당</th>
-            <th className="px-2">발표</th>
-            {editing && <th></th>}
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((e) =>
-            editing || e.date ? (
-              <tr key={e.id} className="border-b border-slate-100 last:border-0">
-                <td className="py-1.5 px-2 whitespace-nowrap">
-                  {editing ? (
-                    <input className="input !py-1 !px-1 text-xs w-24" value={e.date} onChange={(ev) => updateEntry(e.id, { date: ev.target.value })} />
-                  ) : (
-                    e.date
-                  )}
-                </td>
-                <td className="px-2">
-                  {editing ? (
-                    <input className="input !py-1 !px-1 text-xs w-24" value={e.category} onChange={(ev) => updateEntry(e.id, { category: ev.target.value })} />
-                  ) : (
-                    e.category
-                  )}
-                </td>
-                <td className="px-2">
-                  {editing ? (
-                    <input className="input !py-1 !px-1 text-xs w-64" value={e.topic} onChange={(ev) => updateEntry(e.id, { topic: ev.target.value })} />
-                  ) : (
-                    e.topic
-                  )}
-                </td>
-                <td className="px-2">
-                  {editing ? (
-                    <input className="input !py-1 !px-1 text-xs w-16" value={e.assignee} onChange={(ev) => updateEntry(e.id, { assignee: ev.target.value })} />
-                  ) : (
-                    e.assignee
-                  )}
-                </td>
-                <td className="px-2">
-                  {editing ? (
-                    <input className="input !py-1 !px-1 text-xs w-16" value={e.presenter} onChange={(ev) => updateEntry(e.id, { presenter: ev.target.value })} />
-                  ) : (
-                    e.presenter
-                  )}
-                </td>
-                {editing && (
-                  <td>
-                    <button type="button" onClick={() => deleteEntry(e.id)} className="text-xs text-red-500 hover:text-red-700 px-1">
-                      삭제
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ) : (
-              <tr key={e.id} className="bg-amber-50">
-                <td colSpan={editing ? 6 : 5} className="px-2 py-1.5 text-amber-700">
-                  {editing ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        className="input !py-1 !px-1 text-xs w-24"
-                        placeholder="분류"
-                        value={e.category}
-                        onChange={(ev) => updateEntry(e.id, { category: ev.target.value })}
-                      />
-                      <input
-                        className="input !py-1 !px-1 text-xs flex-1"
-                        placeholder="내용"
-                        value={e.topic}
-                        onChange={(ev) => updateEntry(e.id, { topic: ev.target.value })}
-                      />
-                      <button type="button" onClick={() => deleteEntry(e.id)} className="text-xs text-red-500 hover:text-red-700 px-1 flex-shrink-0">
-                        삭제
-                      </button>
-                    </div>
-                  ) : (
-                    <span>
-                      📌 {e.category ? `[${e.category}] ` : ""}
-                      {e.topic}
+      {groups.map((g) => (
+        <section key={g.month} className="card space-y-1">
+          <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 mb-1">{g.month}</h3>
+          <div className="divide-y divide-slate-100">
+            {g.entries.map((e) =>
+              editing ? (
+                <div key={e.id} className="flex items-center gap-2 py-1.5 flex-wrap">
+                  <input
+                    className="input !py-1 !px-1 text-xs w-14"
+                    placeholder="월"
+                    value={e.month}
+                    onChange={(ev) => updateEntry(e.id, { month: ev.target.value })}
+                  />
+                  <input
+                    className="input !py-1 !px-1 text-xs w-20"
+                    placeholder="날짜"
+                    value={e.date}
+                    onChange={(ev) => updateEntry(e.id, { date: ev.target.value })}
+                  />
+                  <input
+                    className="input !py-1 !px-1 text-xs w-24"
+                    placeholder="분류"
+                    value={e.category}
+                    onChange={(ev) => updateEntry(e.id, { category: ev.target.value })}
+                  />
+                  <input
+                    className="input !py-1 !px-1 text-xs flex-1 min-w-[160px]"
+                    placeholder="주제 / 내용"
+                    value={e.topic}
+                    onChange={(ev) => updateEntry(e.id, { topic: ev.target.value })}
+                  />
+                  <input
+                    className="input !py-1 !px-1 text-xs w-16"
+                    placeholder="담당"
+                    value={e.assignee}
+                    onChange={(ev) => updateEntry(e.id, { assignee: ev.target.value })}
+                  />
+                  <input
+                    className="input !py-1 !px-1 text-xs w-16"
+                    placeholder="발표"
+                    value={e.presenter}
+                    onChange={(ev) => updateEntry(e.id, { presenter: ev.target.value })}
+                  />
+                  <button type="button" onClick={() => deleteEntry(e.id)} className="text-xs text-red-500 hover:text-red-700 px-1 flex-shrink-0">
+                    삭제
+                  </button>
+                </div>
+              ) : e.date ? (
+                <div key={e.id} className="flex items-center gap-3 py-2">
+                  <span className="w-16 text-xs text-slate-400 flex-shrink-0">{e.date}</span>
+                  {e.category && (
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${categoryClass(e.category)}`}>
+                      {e.category}
                     </span>
                   )}
-                </td>
-              </tr>
-            )
+                  <span className="flex-1 text-sm text-slate-700">{e.topic}</span>
+                  {(e.assignee || e.presenter) && (
+                    <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap">
+                      {e.assignee}
+                      {e.presenter ? ` → ${e.presenter}` : ""}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div key={e.id} className="py-2 px-2 -mx-2 rounded-lg bg-amber-50 text-amber-700 text-sm">
+                  📌 {e.category ? `[${e.category}] ` : ""}
+                  {e.topic}
+                </div>
+              )
+            )}
+          </div>
+          {editing && (
+            <button type="button" onClick={() => addEntry(g.month)} className="btn-outline !px-3 !py-1 text-xs">
+              + {g.month}에 항목 추가
+            </button>
           )}
-        </tbody>
-      </table>
+        </section>
+      ))}
 
       {editing && (
-        <div className="flex items-center gap-2 pt-1">
-          <button type="button" onClick={addEntry} className="btn-outline !px-3 !py-1 text-xs">
-            + 항목 추가
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => addEntry("")} className="btn-outline !px-3 !py-1 text-xs">
+            + 새 달 추가
           </button>
           <button type="button" onClick={save} className="btn !px-3 !py-1 text-xs" disabled={saving}>
             {saving ? "저장 중..." : "저장"}
@@ -408,6 +410,6 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
           {saved && <span className="text-xs text-emerald-600">저장됨</span>}
         </div>
       )}
-    </section>
+    </div>
   );
 }

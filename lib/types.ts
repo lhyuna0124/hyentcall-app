@@ -137,6 +137,7 @@ export interface ClinicSchedule {
 // --- 컨퍼런스 스케쥴 ---
 export interface ConferenceEntry {
   id: string;
+  month: string; // 화면에 묶어서 표시할 기준 (예: "9월") - 실제 날짜가 다음달로 넘어가도(전공의 시험 등) 원래 속한 달 기준
   date: string; // 자유 기술 (예: "9월 7일", "10월 2일", "추석 9월 24~27일")
   category: string; // 이과/비과/두경부/Staff lecture/전공의 N차 시험/공지 등 자유 기술
   topic: string; // 주제
