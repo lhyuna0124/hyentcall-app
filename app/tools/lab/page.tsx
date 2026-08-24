@@ -96,7 +96,7 @@ export default function LabPage() {
     loadProcedures();
   }
 
-  async function persistOrder(next: ConsentProcedure[]) {
+  async function persistProcedures(next: ConsentProcedure[]) {
     setProcedures(next);
     await fetch("/api/consent-procedures", {
       method: "PUT",
@@ -105,13 +105,30 @@ export default function LabPage() {
     });
   }
 
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  function startRenaming(p: ConsentProcedure) {
+    setRenamingId(p.id);
+    setRenameValue(p.name);
+  }
+
+  async function saveRename() {
+    const id = renamingId;
+    const trimmed = renameValue.trim();
+    setRenamingId(null);
+    if (!id || !trimmed) return;
+    const next = procedures.map((p) => (p.id === id ? { ...p, name: trimmed } : p));
+    await persistProcedures(next);
+  }
+
   async function moveProcedure(id: string, direction: "up" | "down") {
     const curIdx = procedureList.findIndex((p) => p.id === id);
     const targetIdx = direction === "up" ? curIdx - 1 : curIdx + 1;
     if (curIdx === -1 || targetIdx < 0 || targetIdx >= procedureList.length) return;
     const reordered = [...procedureList];
     [reordered[curIdx], reordered[targetIdx]] = [reordered[targetIdx], reordered[curIdx]];
-    await persistOrder(reorderInCategory(procedures, activeCategory, reordered));
+    await persistProcedures(reorderInCategory(procedures, activeCategory, reordered));
   }
 
   const [dragId, setDragId] = useState<string | null>(null);
@@ -128,7 +145,7 @@ export default function LabPage() {
     const reordered = [...procedureList];
     const [moved] = reordered.splice(curIdx, 1);
     reordered.splice(overIdx, 0, moved);
-    await persistOrder(reorderInCategory(procedures, activeCategory, reordered));
+    await persistProcedures(reorderInCategory(procedures, activeCategory, reordered));
   }
 
   // --- 선택된 수술의 양식 ---
@@ -263,7 +280,7 @@ export default function LabPage() {
         {procedureList.map((p, idx) => (
           <div
             key={p.id}
-            draggable={user.isAdmin}
+            draggable={user.isAdmin && renamingId !== p.id}
             onDragStart={() => setDragId(p.id)}
             onDragOver={(e) => {
               e.preventDefault();
@@ -306,22 +323,59 @@ export default function LabPage() {
                 </div>
               </>
             )}
-            <button
-              type="button"
-              onClick={() => setActiveProcedureId(p.id)}
-              className={`flex-1 text-left text-sm py-0.5 ${p.id === activeProcedureId ? "font-semibold text-brand-700" : "text-slate-600"}`}
-            >
-              {p.name}
-            </button>
-            {user.isAdmin && (
-              <button
-                type="button"
-                title="삭제"
-                onClick={() => deleteProcedure(p.id)}
-                className="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-700 px-1 flex-shrink-0"
-              >
-                삭제
-              </button>
+            {renamingId === p.id ? (
+              <>
+                <input
+                  autoFocus
+                  className="input !py-1 text-xs flex-1"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveRename();
+                    if (e.key === "Escape") setRenamingId(null);
+                  }}
+                />
+                <button type="button" onClick={saveRename} className="text-xs text-brand-600 hover:underline px-1 flex-shrink-0">
+                  저장
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRenamingId(null)}
+                  className="text-xs text-slate-400 hover:text-slate-600 px-1 flex-shrink-0"
+                >
+                  취소
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveProcedureId(p.id)}
+                  className={`flex-1 text-left text-sm py-0.5 ${p.id === activeProcedureId ? "font-semibold text-brand-700" : "text-slate-600"}`}
+                >
+                  {p.name}
+                </button>
+                {user.isAdmin && (
+                  <button
+                    type="button"
+                    title="이름 수정"
+                    onClick={() => startRenaming(p)}
+                    className="opacity-0 group-hover:opacity-100 text-xs text-slate-400 hover:text-slate-700 px-1 flex-shrink-0"
+                  >
+                    ✏️
+                  </button>
+                )}
+                {user.isAdmin && (
+                  <button
+                    type="button"
+                    title="삭제"
+                    onClick={() => deleteProcedure(p.id)}
+                    className="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-700 px-1 flex-shrink-0"
+                  >
+                    삭제
+                  </button>
+                )}
+              </>
             )}
           </div>
         ))}
