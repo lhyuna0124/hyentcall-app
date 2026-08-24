@@ -1,6 +1,8 @@
-// 실험실 > 수술동의서 와꾸에서 다루는 수술 목록입니다.
-// 수술을 추가/변경하려면 이 배열을 수정하세요 (PROFESSORS 배열과 같은 방식).
-export const CONSENT_PROCEDURES: { id: string; name: string }[] = [
-  { id: "thyroidectomy", name: "Thyroidectomy" },
-  { id: "parotidectomy", name: "Parotidectomy" },
+import { ConsentProcedure } from "./types";
+
+// 실험실 > 수술동의서 와꾸의 초기 목록입니다. 이후 추가되는 항목은 관리자가 화면에서
+// 직접 추가하며 KV에 저장됩니다 (이 배열은 최초 1회 기본값으로만 쓰입니다).
+export const DEFAULT_CONSENT_PROCEDURES: ConsentProcedure[] = [
+  { id: "thyroidectomy", name: "Thyroidectomy", category: "두경부" },
+  { id: "parotidectomy", name: "Parotidectomy", category: "두경부" },
 ];
