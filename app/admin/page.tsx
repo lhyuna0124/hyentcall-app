@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { RESIDENTS } from "@/lib/residents";
+import { DEFAULT_RESIDENTS, Level, Resident } from "@/lib/residents";
 import { DEFAULT_DIAGNOSES, DiagnosisRule, RiskLevel } from "@/lib/triage";
 import { EvaluationRecord, NotificationRecord, MdtPatient, QuickLink, FeedbackRecord } from "@/lib/types";
 
@@ -23,7 +23,58 @@ export default function AdminPage() {
     if (!loading && (!user || !user.isAdmin)) router.replace("/notify");
   }, [loading, user, router]);
 
-  const residentList = RESIDENTS.filter((r) => !r.isAdmin);
+  // --- 계정 관리 ---
+  const [residents, setResidents] = useState<Resident[]>(DEFAULT_RESIDENTS);
+  const [addingResident, setAddingResident] = useState(false);
+  const [newResident, setNewResident] = useState<{ name: string; level: Level; phoneLast4: string; isAdmin: boolean }>({
+    name: "",
+    level: "R1",
+    phoneLast4: "",
+    isAdmin: false,
+  });
+  const [residentsSaving, setResidentsSaving] = useState(false);
+
+  function loadResidents() {
+    fetch("/api/residents").then((r) => r.json()).then(setResidents).catch(() => {});
+  }
+  useEffect(() => {
+    loadResidents();
+  }, []);
+
+  async function persistResidents(next: Resident[]) {
+    setResidents(next);
+    setResidentsSaving(true);
+    await fetch("/api/residents", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    });
+    setResidentsSaving(false);
+  }
+
+  async function addResident() {
+    if (!newResident.name.trim() || !newResident.phoneLast4.trim()) return;
+    const res = await fetch("/api/residents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newResident),
+    });
+    const created: Resident = await res.json();
+    setResidents((prev) => [...prev, created]);
+    setNewResident({ name: "", level: "R1", phoneLast4: "", isAdmin: false });
+    setAddingResident(false);
+  }
+
+  function updateResident(id: string, patch: Partial<Resident>) {
+    persistResidents(residents.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  function deleteResident(id: string) {
+    if (!confirm("이 계정을 삭제하시겠습니까?")) return;
+    persistResidents(residents.filter((r) => r.id !== id));
+  }
+
+  const residentList = useMemo(() => residents.filter((r) => !r.isAdmin), [residents]);
 
   const [evaluations, setEvaluations] = useState<EvaluationRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
@@ -46,8 +97,7 @@ export default function AdminPage() {
     )
       .then((entries) => setAllCompetencyScores(Object.fromEntries(entries)))
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [residentList]);
 
   // --- 알고리즘 편집 (평가 폼보다 먼저 선언 필요) ---
   const [diagnoses, setDiagnoses] = useState<DiagnosisRule[]>(DEFAULT_DIAGNOSES);
@@ -374,6 +424,125 @@ export default function AdminPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* 계정 관리 */}
+      <section className="card space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-medium text-slate-700">계정 관리 ({residents.length}명)</h2>
+          {residentsSaving && <span className="text-xs text-slate-400">저장 중...</span>}
+        </div>
+        <p className="text-xs text-slate-400">이름 + 휴대폰 뒷 4자리로 로그인하는 계정 목록입니다. 여기서 추가/수정/삭제하면 바로 반영됩니다.</p>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-slate-400 border-b border-slate-200">
+              <th className="py-1.5">이름</th>
+              <th>연차/구분</th>
+              <th>전화번호 뒷자리</th>
+              <th>관리자</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {residents.map((r) => (
+              <tr key={r.id} className="border-b border-slate-100 last:border-0">
+                <td className="py-1">
+                  <input
+                    className="input !py-1 !w-32"
+                    value={r.name}
+                    onChange={(e) => setResidents((prev) => prev.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
+                    onBlur={(e) => updateResident(r.id, { name: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <select
+                    className="input !py-1 !w-28"
+                    value={r.level}
+                    onChange={(e) => updateResident(r.id, { level: e.target.value as Level })}
+                  >
+                    {(["R1", "R2", "R3", "R4", "ATTENDING", "H&N RN"] as Level[]).map((lv) => (
+                      <option key={lv} value={lv}>
+                        {lv}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <input
+                    className="input !py-1 !w-20"
+                    maxLength={4}
+                    value={r.phoneLast4}
+                    onChange={(e) => setResidents((prev) => prev.map((x) => (x.id === r.id ? { ...x, phoneLast4: e.target.value } : x)))}
+                    onBlur={(e) => updateResident(r.id, { phoneLast4: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={!!r.isAdmin}
+                    onChange={(e) => updateResident(r.id, { isAdmin: e.target.checked })}
+                  />
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => deleteResident(r.id)}
+                    className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-1"
+                  >
+                    삭제
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!addingResident ? (
+          <button type="button" className="btn-outline !py-1" onClick={() => setAddingResident(true)}>
+            + 계정 추가
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              autoFocus
+              className="input !py-1 !w-32"
+              placeholder="이름"
+              value={newResident.name}
+              onChange={(e) => setNewResident((p) => ({ ...p, name: e.target.value }))}
+            />
+            <select
+              className="input !py-1 !w-28"
+              value={newResident.level}
+              onChange={(e) => setNewResident((p) => ({ ...p, level: e.target.value as Level }))}
+            >
+              {(["R1", "R2", "R3", "R4", "ATTENDING", "H&N RN"] as Level[]).map((lv) => (
+                <option key={lv} value={lv}>
+                  {lv}
+                </option>
+              ))}
+            </select>
+            <input
+              className="input !py-1 !w-20"
+              placeholder="0000"
+              maxLength={4}
+              value={newResident.phoneLast4}
+              onChange={(e) => setNewResident((p) => ({ ...p, phoneLast4: e.target.value }))}
+            />
+            <label className="flex items-center gap-1 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={newResident.isAdmin}
+                onChange={(e) => setNewResident((p) => ({ ...p, isAdmin: e.target.checked }))}
+              />
+              관리자
+            </label>
+            <button type="button" className="btn !py-1" onClick={addResident}>
+              추가
+            </button>
+            <button type="button" className="btn-outline !py-1" onClick={() => setAddingResident(false)}>
+              취소
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 전공의 요약 */}
