@@ -18,6 +18,12 @@ function emptyTemplate(procedureId: string, procedureName: string): ConsentTempl
   return { procedureId, procedureName, procedureNameKo: "", purpose: "", process: "", complications: "", precautions: "", updatedAt: "" };
 }
 
+// 특정 분류 내에서만 순서를 바꾸고, 다른 분류 항목들의 상대 위치는 그대로 둡니다.
+function reorderInCategory(all: ConsentProcedure[], category: ConsentCategory, orderedCategoryItems: ConsentProcedure[]): ConsentProcedure[] {
+  let i = 0;
+  return all.map((p) => (p.category === category ? orderedCategoryItems[i++] : p));
+}
+
 export default function LabPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -90,22 +96,39 @@ export default function LabPage() {
     loadProcedures();
   }
 
-  async function moveProcedure(id: string, direction: "up" | "down") {
-    const curIdx = procedureList.findIndex((p) => p.id === id);
-    const targetIdx = direction === "up" ? curIdx - 1 : curIdx + 1;
-    if (curIdx === -1 || targetIdx < 0 || targetIdx >= procedureList.length) return;
-    const otherId = procedureList[targetIdx].id;
-
-    const fullIdxA = procedures.findIndex((p) => p.id === id);
-    const fullIdxB = procedures.findIndex((p) => p.id === otherId);
-    const next = [...procedures];
-    [next[fullIdxA], next[fullIdxB]] = [next[fullIdxB], next[fullIdxA]];
+  async function persistOrder(next: ConsentProcedure[]) {
     setProcedures(next);
     await fetch("/api/consent-procedures", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(next),
     });
+  }
+
+  async function moveProcedure(id: string, direction: "up" | "down") {
+    const curIdx = procedureList.findIndex((p) => p.id === id);
+    const targetIdx = direction === "up" ? curIdx - 1 : curIdx + 1;
+    if (curIdx === -1 || targetIdx < 0 || targetIdx >= procedureList.length) return;
+    const reordered = [...procedureList];
+    [reordered[curIdx], reordered[targetIdx]] = [reordered[targetIdx], reordered[curIdx]];
+    await persistOrder(reorderInCategory(procedures, activeCategory, reordered));
+  }
+
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  async function handleDrop(overId: string) {
+    const draggedId = dragId;
+    setDragId(null);
+    setDragOverId(null);
+    if (!draggedId || draggedId === overId) return;
+    const curIdx = procedureList.findIndex((p) => p.id === draggedId);
+    const overIdx = procedureList.findIndex((p) => p.id === overId);
+    if (curIdx === -1 || overIdx === -1) return;
+    const reordered = [...procedureList];
+    const [moved] = reordered.splice(curIdx, 1);
+    reordered.splice(overIdx, 0, moved);
+    await persistOrder(reorderInCategory(procedures, activeCategory, reordered));
   }
 
   // --- 선택된 수술의 양식 ---
@@ -233,39 +256,60 @@ export default function LabPage() {
       </div>
 
       {/* 해당 분류의 수술 목록 */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="card !p-2 space-y-1">
+        {user.isAdmin && procedureList.length > 1 && (
+          <p className="text-[11px] text-slate-400 px-1">⠿ 를 끌어서, 또는 ▲▼로 순서를 바꿀 수 있어요.</p>
+        )}
         {procedureList.map((p, idx) => (
-          <div key={p.id} className="relative group flex items-center gap-0.5">
+          <div
+            key={p.id}
+            draggable={user.isAdmin}
+            onDragStart={() => setDragId(p.id)}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (dragId && dragId !== p.id) setDragOverId(p.id);
+            }}
+            onDragLeave={() => setDragOverId((id) => (id === p.id ? null : id))}
+            onDrop={() => handleDrop(p.id)}
+            onDragEnd={() => {
+              setDragId(null);
+              setDragOverId(null);
+            }}
+            className={`group flex items-center gap-1.5 rounded-lg border px-2 py-1.5 transition ${
+              p.id === activeProcedureId ? "bg-brand-50 border-brand-300" : "border-transparent hover:bg-slate-50"
+            } ${dragOverId === p.id ? "border-brand-500 border-2" : ""}`}
+          >
             {user.isAdmin && (
-              <div className="flex flex-col">
-                <button
-                  type="button"
-                  title="위로"
-                  onClick={() => moveProcedure(p.id, "up")}
-                  disabled={idx === 0}
-                  className="leading-none text-[10px] px-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:hover:text-slate-400"
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  title="아래로"
-                  onClick={() => moveProcedure(p.id, "down")}
-                  disabled={idx === procedureList.length - 1}
-                  className="leading-none text-[10px] px-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:hover:text-slate-400"
-                >
-                  ▼
-                </button>
-              </div>
+              <>
+                <span className="cursor-grab text-slate-300 group-hover:text-slate-400 select-none px-0.5" title="드래그로 순서 변경">
+                  ⠿
+                </span>
+                <div className="flex flex-col flex-shrink-0">
+                  <button
+                    type="button"
+                    title="위로"
+                    onClick={() => moveProcedure(p.id, "up")}
+                    disabled={idx === 0}
+                    className="leading-none text-[10px] px-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:hover:text-slate-400"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    title="아래로"
+                    onClick={() => moveProcedure(p.id, "down")}
+                    disabled={idx === procedureList.length - 1}
+                    className="leading-none text-[10px] px-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:hover:text-slate-400"
+                  >
+                    ▼
+                  </button>
+                </div>
+              </>
             )}
             <button
               type="button"
               onClick={() => setActiveProcedureId(p.id)}
-              className={
-                p.id === activeProcedureId
-                  ? "px-3 py-1.5 rounded-full bg-brand-600 text-white text-sm font-semibold"
-                  : "px-3 py-1.5 rounded-full border border-slate-300 text-sm text-slate-600 hover:bg-slate-50"
-              }
+              className={`flex-1 text-left text-sm py-0.5 ${p.id === activeProcedureId ? "font-semibold text-brand-700" : "text-slate-600"}`}
             >
               {p.name}
             </button>
@@ -274,15 +318,15 @@ export default function LabPage() {
                 type="button"
                 title="삭제"
                 onClick={() => deleteProcedure(p.id)}
-                className="absolute -top-1.5 -right-1.5 hidden group-hover:flex w-4 h-4 rounded-full bg-red-500 text-white text-[10px] items-center justify-center"
+                className="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-700 px-1 flex-shrink-0"
               >
-                ×
+                삭제
               </button>
             )}
           </div>
         ))}
         {procedureList.length === 0 && !addingProcedure && (
-          <span className="text-sm text-slate-400">이 분류에 등록된 동의서가 없습니다.</span>
+          <p className="text-sm text-slate-400 px-1 py-1">이 분류에 등록된 동의서가 없습니다.</p>
         )}
         {user.isAdmin && !addingProcedure && (
           <button type="button" onClick={() => setAddingProcedure(true)} className="btn-outline !px-3 !py-1.5 text-xs">
