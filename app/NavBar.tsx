@@ -16,6 +16,7 @@ export default function NavBar() {
     { href: "/tools/mdt", label: "다학제 정리", icon: "🧑‍⚕️" },
     { href: "/tools/us-report", label: "US Report", icon: "🩻" },
     { href: "/tools/resources", label: "자료실", icon: "📁" },
+    { href: "/tools/lab", label: "실험실", icon: "🧪" },
     { href: "/stats", label: "통계", icon: "📊" },
     ...(user.isAdmin ? [{ href: "/admin", label: "관리자", icon: "⚙️" }] : []),
   ];

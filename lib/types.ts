@@ -82,6 +82,38 @@ export interface FeedbackRecord {
   message: string;
 }
 
+// --- 실험실: 수술동의서 양식 (준비 중인 기능을 미리 테스트해보는 공간) ---
+export const CONSENT_CATEGORIES = ["두경부", "비과", "이과", "일반 local"] as const;
+export type ConsentCategory = (typeof CONSENT_CATEGORIES)[number];
+
+export interface ConsentProcedure {
+  id: string;
+  name: string;
+  category: ConsentCategory;
+}
+
+// 표준 수술/시술 동의서 4개 항목 (보건복지부 표준 동의서 양식 기준)
+export interface ConsentTemplate {
+  procedureId: string;
+  procedureName: string;
+  procedureNameKo?: string; // 수술명 한글 표기
+  purpose: string; // 1. 수술(시술, 검사)의 목적 및 효과
+  process: string; // 2. 수술과정 및 방법, 수술(시술, 검사) 부위 및 추정 소요 시간
+  complications: string; // 3. 발현가능한 합병증(후유증)의 내용, 정도 및 대처방법
+  precautions: string; // 4. 수술(시술, 검사) 관련 주의 사항
+  updatedAt: string;
+}
+
+export interface ConsentComment {
+  id: string;
+  createdAt: string;
+  procedureId: string;
+  authorId: string;
+  authorName: string;
+  authorLevel: string;
+  text: string;
+}
+
 // --- MDT 환자 목록 ---
 export type HospitalSite = "구리" | "서울";
 
