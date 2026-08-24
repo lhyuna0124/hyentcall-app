@@ -90,6 +90,24 @@ export default function LabPage() {
     loadProcedures();
   }
 
+  async function moveProcedure(id: string, direction: "up" | "down") {
+    const curIdx = procedureList.findIndex((p) => p.id === id);
+    const targetIdx = direction === "up" ? curIdx - 1 : curIdx + 1;
+    if (curIdx === -1 || targetIdx < 0 || targetIdx >= procedureList.length) return;
+    const otherId = procedureList[targetIdx].id;
+
+    const fullIdxA = procedures.findIndex((p) => p.id === id);
+    const fullIdxB = procedures.findIndex((p) => p.id === otherId);
+    const next = [...procedures];
+    [next[fullIdxA], next[fullIdxB]] = [next[fullIdxB], next[fullIdxA]];
+    setProcedures(next);
+    await fetch("/api/consent-procedures", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    });
+  }
+
   // --- 선택된 수술의 양식 ---
   const [template, setTemplate] = useState<ConsentTemplate | null>(null);
   const [editing, setEditing] = useState(false);
@@ -216,8 +234,30 @@ export default function LabPage() {
 
       {/* 해당 분류의 수술 목록 */}
       <div className="flex items-center gap-2 flex-wrap">
-        {procedureList.map((p) => (
-          <div key={p.id} className="relative group">
+        {procedureList.map((p, idx) => (
+          <div key={p.id} className="relative group flex items-center gap-0.5">
+            {user.isAdmin && (
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  title="위로"
+                  onClick={() => moveProcedure(p.id, "up")}
+                  disabled={idx === 0}
+                  className="leading-none text-[10px] px-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:hover:text-slate-400"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  title="아래로"
+                  onClick={() => moveProcedure(p.id, "down")}
+                  disabled={idx === procedureList.length - 1}
+                  className="leading-none text-[10px] px-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:hover:text-slate-400"
+                >
+                  ▼
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setActiveProcedureId(p.id)}

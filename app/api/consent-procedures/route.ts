@@ -22,6 +22,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(item);
 }
 
+export async function PUT(req: NextRequest) {
+  const body = (await req.json()) as ConsentProcedure[];
+  await kvSet(KEY, body);
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ ok: false, error: "id가 필요합니다." }, { status: 400 });
