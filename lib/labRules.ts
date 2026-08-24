@@ -13,20 +13,29 @@ export interface LabRule {
 // (예: WBC 9.9 = 9,900/μL). 병원 표기가 원시 카운트(예: 9900)라면 이 두 항목의 low/high를 1000배로 조정하세요.
 // RBC는 임상적으로 Hb(헤모글로빈)만큼 중요하게 보지 않아 자동인식 대상에서 제외했습니다.
 export const LAB_RULES: LabRule[] = [
-  { key: "WBC", aliases: ["wbc"], label: "WBC", low: 4.0, high: 10.0, alwaysShow: true },
+  { key: "WBC", aliases: ["wbc"], label: "WBC", low: 4, high: 10, alwaysShow: true },
   { key: "CRP", aliases: ["crp"], label: "CRP", low: 0, high: 0.5, alwaysShow: true },
-  { key: "Hb", aliases: ["hb", "hgb", "hemoglobin"], label: "Hb", low: 12, high: 16 },
+  { key: "Hb", aliases: ["hb", "hgb", "hemoglobin"], label: "Hb", low: 13, high: 17 },
   { key: "Hct", aliases: ["hct", "hematocrit"], label: "Hct", low: 36, high: 48 },
-  { key: "PLT", aliases: ["plt", "platelet"], label: "Platelet", low: 150, high: 400 },
-  { key: "AST", aliases: ["ast", "got"], label: "AST", low: 0, high: 40 },
-  { key: "ALT", aliases: ["alt", "gpt"], label: "ALT", low: 0, high: 40 },
+  { key: "PLT", aliases: ["plt", "platelet"], label: "Platelet", low: 150, high: 450 },
+  { key: "ANC", aliases: ["anc"], label: "ANC", low: 1.57, high: 8.3 },
+  { key: "AST", aliases: ["ast", "got"], label: "AST", low: 0, high: 49 },
+  { key: "ALT", aliases: ["alt", "gpt"], label: "ALT", low: 0, high: 49 },
   { key: "BUN", aliases: ["bun"], label: "BUN", low: 8, high: 20 },
-  { key: "Cr", aliases: ["cr", "creatinine"], label: "Cr", low: 0.6, high: 1.2 },
+  { key: "Cr", aliases: ["cr", "creatinine"], label: "Cr", low: 0.67, high: 1.17 },
   { key: "eGFR", aliases: ["egfr"], label: "eGFR", low: 60 },
-  { key: "Na", aliases: ["na", "sodium"], label: "Na", low: 135, high: 145 },
-  { key: "K", aliases: ["k", "potassium"], label: "K", low: 3.5, high: 5.1 },
-  { key: "Cl", aliases: ["cl", "chloride"], label: "Cl", low: 98, high: 107 },
-  { key: "TroponinI", aliases: ["troponin i", "troponin", "tni"], label: "Troponin I", low: 0, high: 0.04 },
+  { key: "Na", aliases: ["na", "sodium"], label: "Na", low: 136, high: 146 },
+  { key: "K", aliases: ["k", "potassium"], label: "K", low: 3.5, high: 5.5 },
+  { key: "Cl", aliases: ["cl", "chloride"], label: "Cl", low: 101, high: 109 },
+  { key: "Ca", aliases: ["calcium"], label: "Calcium", low: 8.6, high: 10.3 },
+  { key: "Phos", aliases: ["phosphorus", "phosphate"], label: "Phosphorus", low: 2.5, high: 4.5 },
+  { key: "Amylase", aliases: ["amylase"], label: "Amylase", low: 44, high: 132 },
+  { key: "Lipase", aliases: ["lipase"], label: "Lipase", low: 1, high: 66 },
+  { key: "CKMB", aliases: ["ck-mb", "ckmb", "creatine kinase-mb"], label: "CK-MB", low: 0, high: 4.7 },
+  { key: "TroponinI", aliases: ["troponin i", "troponin", "tni"], label: "Troponin I", low: 0, high: 0.026 },
+  { key: "ESR", aliases: ["esr"], label: "ESR", low: 0, high: 15 },
+  { key: "Presepsin", aliases: ["presepsin"], label: "Presepsin", low: 0, high: 336.9 },
+  { key: "DDimer", aliases: ["d-dimer", "ddimer", "d dimer"], label: "D-dimer", low: 0, high: 500 },
   { key: "Glucose", aliases: ["glucose", "glu"], label: "Glucose", low: 70, high: 140 },
 ];
 
@@ -40,7 +49,9 @@ export interface ParsedLab {
   date: string | null; // YYYY-MM-DD (인식되지 않으면 null)
 }
 
-const DATE_LINE_RE = /^\s*(\d{4}-\d{2}-\d{2})\s+(.*)$/;
+// 날짜 뒤에 "13:48" 같은 검사 시각이 붙는 경우가 많아, 그 시각까지 함께 건너뛰지 않으면
+// 시각의 ":" 이 검사명/결과를 구분하는 실제 ":" 보다 먼저 잡혀 파싱이 깨집니다.
+const DATE_LINE_RE = /^\s*(\d{4}-\d{2}-\d{2})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?\s+(.*)$/;
 const VALUE_RE = /\s*([▲▼])?\s*(-?\d+(?:\.\d+)?)/;
 
 function escapeRegex(s: string) {
@@ -88,7 +99,7 @@ export function parseLabText(text: string): ParsedLab[] {
     const dateMatch = line.match(DATE_LINE_RE);
     const date = dateMatch ? dateMatch[1] : null;
     const rest = dateMatch ? dateMatch[2] : line;
-    const colonIdx = rest.indexOf(":");
+    const colonIdx = rest.lastIndexOf(":");
     if (colonIdx === -1) continue;
     const namePart = rest.slice(0, colonIdx);
     const valuePart = rest.slice(colonIdx + 1);
