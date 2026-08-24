@@ -15,7 +15,7 @@ const SECTIONS: { key: SectionKey; title: string }[] = [
 ];
 
 function emptyTemplate(procedureId: string, procedureName: string): ConsentTemplate {
-  return { procedureId, procedureName, purpose: "", process: "", complications: "", precautions: "", updatedAt: "" };
+  return { procedureId, procedureName, procedureNameKo: "", purpose: "", process: "", complications: "", precautions: "", updatedAt: "" };
 }
 
 export default function LabPage() {
@@ -85,12 +85,12 @@ export default function LabPage() {
   }
 
   async function deleteProcedure(id: string) {
-    if (!confirm("이 동의서 항목을 삭제하시겠습니까? (와꾸 내용/댓글은 남지만 목록에서 사라집니다)")) return;
+    if (!confirm("이 동의서 항목을 삭제하시겠습니까? (양식 내용/댓글은 남지만 목록에서 사라집니다)")) return;
     await fetch(`/api/consent-procedures?id=${id}`, { method: "DELETE" });
     loadProcedures();
   }
 
-  // --- 선택된 수술의 와꾸 ---
+  // --- 선택된 수술의 양식 ---
   const [template, setTemplate] = useState<ConsentTemplate | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ConsentTemplate | null>(null);
@@ -200,7 +200,7 @@ export default function LabPage() {
       <div>
         <h1 className="text-xl font-bold text-brand-700">🧪 실험실</h1>
         <p className="text-sm text-slate-500 mt-1">
-          곧 추가될 기능을 미리 테스트해보는 공간입니다. 지금은 <b>수술동의서 와꾸</b>를 시험 중이에요 — 술 전 챙길 것,
+          곧 추가될 기능을 미리 테스트해보는 공간입니다. 지금은 <b>수술동의서 양식</b>을 시험 중이에요 — 술 전 챙길 것,
           동의서 설명 시 다룰 내용 등을 댓글로 남겨주시면 관리자가 확인 후 아래 내용에 반영합니다.
         </p>
       </div>
@@ -289,7 +289,10 @@ export default function LabPage() {
         <>
           <section className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-bold text-slate-800">{activeProcedure.name} 수술동의서 와꾸</h2>
+              <h2 className="font-bold text-slate-800">
+                {activeProcedure.name}
+                {template.procedureNameKo ? ` (${template.procedureNameKo})` : ""} 수술동의서 양식
+              </h2>
               {user.isAdmin && !editing && (
                 <button type="button" onClick={startEditing} className="btn-outline !px-3 !py-1 text-xs">
                   ✏️ 편집
@@ -299,6 +302,15 @@ export default function LabPage() {
 
             {editing && draft ? (
               <>
+                <div className="space-y-1">
+                  <label className="label">수술명 (한글)</label>
+                  <input
+                    className="input text-sm"
+                    placeholder="예: 갑상선절제술"
+                    value={draft.procedureNameKo || ""}
+                    onChange={(e) => setDraft({ ...draft, procedureNameKo: e.target.value })}
+                  />
+                </div>
                 {SECTIONS.map((s) => (
                   <div key={s.key} className="space-y-1">
                     <label className="label">{s.title}</label>
