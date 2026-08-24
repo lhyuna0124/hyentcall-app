@@ -845,7 +845,7 @@ export default function NotifyPage() {
               {dentalHx === "+" && <MultiCheck options={["발치", "임플란트"]} values={dentalDetails} onChange={setDentalDetails} />}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input className="input" placeholder="기타 기저질환" value={underlyingEtc} onChange={(e) => setUnderlyingEtc(e.target.value)} />
             {dentalHx === "+" && <input className="input" placeholder="치과 치료력 기타 (선택)" value={dentalEtc} onChange={(e) => setDentalEtc(e.target.value)} />}
           </div>
@@ -889,7 +889,7 @@ export default function NotifyPage() {
         <h2 className="font-bold text-slate-800 mb-1">Airway 평가 (모든 진단에서 확인)</h2>
         <Toggle label="Larynx swelling" value={larynxSwelling} onChange={setLarynxSwelling} />
         <Toggle label="Epiglottis swelling" value={epiglottisSwelling} onChange={setEpiglottisSwelling} />
-        <div className="grid grid-cols-2 gap-x-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-x-6">
           <div className="field-row">
             <span className="text-sm text-slate-700">TVC 확인</span>
             <div className="flex gap-1">
@@ -936,7 +936,7 @@ export default function NotifyPage() {
       {isSinusDx && (
       <section className="card space-y-0">
         <h2 className="font-bold text-slate-800 mb-1">Nasal cavity / Orbit 평가</h2>
-        <div className="grid grid-cols-2 gap-x-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-x-6">
           <div className="space-y-0">
             <div className="field-row">
               <span className="text-sm text-slate-700">Polyp</span>
@@ -1070,7 +1070,7 @@ export default function NotifyPage() {
         <details className="acc" open={openSections.lymphNode} onToggle={(e) => setOpenSections((p) => ({ ...p, lymphNode: (e.target as HTMLDetailsElement).open }))}>
           <summary>Lymph Node 소견</summary>
           <div className="acc-body">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="label">Location</label>
                 <div className="flex gap-2">
@@ -1114,7 +1114,7 @@ export default function NotifyPage() {
         <details className="acc" open={openSections.salivary} onToggle={(e) => setOpenSections((p) => ({ ...p, salivary: (e.target as HTMLDetailsElement).open }))}>
           <summary>타액선 평가 (Parotid / SMG)</summary>
           <div className="acc-body">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Parotid - Side</label>
                 <div className="flex gap-2">
@@ -1137,7 +1137,7 @@ export default function NotifyPage() {
               </div>
             </div>
             <MultiCheck options={["WNL", "Swelling", "Tenderness", "Mass"]} values={parotidStatus} onChange={setParotidStatus} />
-            <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-2">
               <div>
                 <label className="label">SMG - Side</label>
                 <div className="flex gap-2">
@@ -1240,7 +1240,7 @@ export default function NotifyPage() {
               ))}
             </div>
           )}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <label className="label">CT 종류</label>
               <select className="input" value={ctType} onChange={(e) => setCtType(e.target.value as any)}>
@@ -1297,7 +1297,7 @@ export default function NotifyPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-slate-100 pt-2">
             <div>
               <label className="label">담당 교수님</label>
               <select className="input" value={professorName} onChange={(e) => setProfessorName(e.target.value)}>

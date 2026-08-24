@@ -37,7 +37,7 @@ export default function SchedulePage() {
   }, [loading, user, router]);
 
   const [tab, setTab] = useState<"clinic" | "conference">("clinic");
-  const [combinedMobileView, setCombinedMobileView] = useState(false);
+  const [mobileViewMode, setMobileViewMode] = useState<"day" | "combinedDay" | "table">("day");
   const [sharedDay, setSharedDay] = useState<string>(CLINIC_DAYS[0]);
 
   if (loading || !user) return null;
@@ -60,17 +60,28 @@ export default function SchedulePage() {
 
       {tab === "clinic" ? (
         <div className="space-y-4">
-          <div className="sm:hidden flex items-center justify-end">
-            <button
-              type="button"
-              onClick={() => setCombinedMobileView((v) => !v)}
-              className="btn-outline !px-3 !py-1.5 text-xs"
-            >
-              {combinedMobileView ? "🔀 사이트별로 보기" : "🔀 서울·구리 한번에 보기"}
-            </button>
+          <div className="sm:hidden flex items-center gap-1.5 flex-wrap">
+            {(
+              [
+                { v: "day", label: "📅 요일별 카드" },
+                { v: "combinedDay", label: "🔀 서울·구리 한번에" },
+                { v: "table", label: "📋 전체 표로 보기" },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.v}
+                type="button"
+                onClick={() => setMobileViewMode(o.v)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 ${
+                  mobileViewMode === o.v ? "bg-brand-700 text-white" : "border border-slate-300 text-slate-600"
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
           </div>
 
-          {combinedMobileView && (
+          {mobileViewMode === "combinedDay" && (
             <div className="sm:hidden flex gap-1 overflow-x-auto pb-1">
               {[...CLINIC_DAYS, "토"].map((d) => (
                 <button
@@ -92,8 +103,9 @@ export default function SchedulePage() {
               key={site}
               site={site}
               isAdmin={!!user.isAdmin}
-              sharedDay={combinedMobileView ? sharedDay : undefined}
-              onSharedDayChange={combinedMobileView ? setSharedDay : undefined}
+              sharedDay={mobileViewMode === "combinedDay" ? sharedDay : undefined}
+              onSharedDayChange={mobileViewMode === "combinedDay" ? setSharedDay : undefined}
+              mobileFullTable={mobileViewMode === "table"}
             />
           ))}
         </div>
@@ -109,11 +121,13 @@ function ClinicSiteTable({
   isAdmin,
   sharedDay,
   onSharedDayChange,
+  mobileFullTable,
 }: {
   site: ClinicSite;
   isAdmin: boolean;
   sharedDay?: string;
   onSharedDayChange?: (d: string) => void;
+  mobileFullTable?: boolean;
 }) {
   const [schedule, setSchedule] = useState<ClinicSchedule | null>(null);
   const [editing, setEditing] = useState(false);
@@ -190,11 +204,11 @@ function ClinicSiteTable({
         view.note && <p className="text-xs text-amber-600">※ {view.note}</p>
       )}
 
-      {!editing && (
+      {!editing && !mobileFullTable && (
         <MobileClinicDayView view={view} sharedDay={sharedDay} onSharedDayChange={onSharedDayChange} />
       )}
 
-      <div className={editing ? "overflow-x-auto" : "overflow-x-auto hidden sm:block"}>
+      <div className={editing || mobileFullTable ? "overflow-x-auto" : "overflow-x-auto hidden sm:block"}>
       <table className="min-w-[880px] text-xs border-collapse">
         <thead>
           <tr>
