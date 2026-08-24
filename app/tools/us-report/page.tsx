@@ -111,7 +111,7 @@ function FreeformTab() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div className="card space-y-2">
         <label className="label">입력 (단어 입력 후 Tab으로 자동완성)</label>
         <textarea
@@ -262,7 +262,7 @@ function GlandSection({
         ))}
       </div>
       {status === "Mass" && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <select className="input" value={side} onChange={(e) => setSide(e.target.value)}>
             <option value="Rt">Rt</option>
             <option value="Lt">Lt</option>
@@ -394,9 +394,9 @@ function StructuredTab() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div className="card space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label">위치</label>
             <select className="input" value={location} onChange={(e) => setLocation(e.target.value)}>
@@ -416,7 +416,7 @@ function StructuredTab() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label">Composition</label>
             <select className="input" value={composition} onChange={(e) => setComposition(e.target.value as CompositionValue)}>
@@ -583,7 +583,7 @@ function StructuredTab() {
             복사
           </button>
         </div>
-        <div className="input min-h-[420px] whitespace-pre-wrap font-mono text-sm bg-slate-50">{output || "왼쪽에서 값을 선택하고 생성하기를 누르세요."}</div>
+        <div className="input min-h-[420px] whitespace-pre-wrap font-mono text-sm bg-slate-50">{output || "값을 선택하고 생성하기를 누르세요."}</div>
       </div>
     </div>
   );
