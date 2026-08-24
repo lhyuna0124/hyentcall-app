@@ -124,7 +124,7 @@ function ClinicSiteTable({ site, isAdmin }: { site: ClinicSite; isAdmin: boolean
   if (!view) return null;
 
   return (
-    <section className="card space-y-2 overflow-x-auto">
+    <section className="card space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-slate-800">{site} 외래 진료 시간표</h2>
         {isAdmin && !editing && (
@@ -145,6 +145,9 @@ function ClinicSiteTable({ site, isAdmin }: { site: ClinicSite; isAdmin: boolean
         view.note && <p className="text-xs text-amber-600">※ {view.note}</p>
       )}
 
+      {!editing && <MobileClinicDayView view={view} />}
+
+      <div className={editing ? "overflow-x-auto" : "overflow-x-auto hidden sm:block"}>
       <table className="min-w-[880px] text-xs border-collapse">
         <thead>
           <tr>
@@ -224,6 +227,7 @@ function ClinicSiteTable({ site, isAdmin }: { site: ClinicSite; isAdmin: boolean
           ))}
         </tbody>
       </table>
+      </div>
 
       {editing && (
         <div className="flex items-center gap-2 pt-1">
@@ -240,6 +244,59 @@ function ClinicSiteTable({ site, isAdmin }: { site: ClinicSite; isAdmin: boolean
         </div>
       )}
     </section>
+  );
+}
+
+function MobileClinicDayView({ view }: { view: ClinicSchedule }) {
+  const DAY_TABS = [...CLINIC_DAYS, "토"] as const;
+  const [day, setDay] = useState<(typeof DAY_TABS)[number]>(DAY_TABS[0]);
+  const isSat = day === "토";
+
+  return (
+    <div className="sm:hidden space-y-2">
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {DAY_TABS.map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => setDay(d)}
+            className={`px-3 py-1.5 rounded-full text-sm font-semibold flex-shrink-0 ${
+              day === d ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+      <div className="space-y-1.5">
+        {view.rows.map((r) =>
+          isSat ? (
+            <div key={r.id} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200">
+              <span className="text-sm font-medium text-slate-700">{r.doctorName}</span>
+              <span className="text-sm text-slate-600">{r.saturdayWeek || "휴진"}</span>
+            </div>
+          ) : (
+            <div key={r.id} className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200">
+              <span className="text-sm font-medium text-slate-700 w-16 flex-shrink-0 truncate">{r.doctorName}</span>
+              <div className="flex-1 grid grid-cols-2 gap-2">
+                {(["AM", "PM"] as const).map((slot) => {
+                  const value = r.slots[`${day}-${slot}`] ?? "";
+                  return (
+                    <div
+                      key={slot}
+                      className={`rounded-md px-2 py-1.5 text-center text-sm ${cellClass(value) || "bg-slate-50 text-slate-400"}`}
+                    >
+                      <span className="block text-[10px] text-slate-400">{slot === "AM" ? "오전" : "오후"}</span>
+                      {value || "-"}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </div>
   );
 }
 
