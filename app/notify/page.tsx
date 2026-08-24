@@ -331,7 +331,20 @@ export default function NotifyPage() {
     };
     if (tvcVisible === "not_visible") r = "HIGH";
     if (epiglottisSwelling === "+" && symptoms.includes("Dyspnea")) r = "HIGH";
-    if (vocalCordMovement === "paresis" || vocalCordMovement === "palsy") r = "HIGH";
+    // Vocal cord palsy/paresis가 편측이면 base risk를 따르되, 기도 폐쇄 위험이 큰 양측인 경우에는
+    // 진단명과 무관하게 항상 즉시 전화가 필요하도록 HIGH로 올립니다.
+    if ((vocalCordMovement === "paresis" || vocalCordMovement === "palsy") && vocalCordSide === "Bilateral") {
+      r = "HIGH";
+    }
+    // 패혈증 등 전신 감염 악화 위험 신호: 기저질환 DM이 있거나, CRP가 뚜렷하게 높거나(≥5),
+    // Presepsin이 정상범위(0~336.9)를 넘으면 진단명과 무관하게 최소 MEDIUM으로 경고를 올립니다.
+    // (D-dimer는 염증이 있으면 흔히 상승해 특이도가 낮아 이 판단에는 포함하지 않았습니다.)
+    const latestLabs = latestPerKey(parsedLabs);
+    const crpValue = latestLabs.find((p) => p.key === "CRP")?.value;
+    const presepsinAbnormal = latestLabs.find((p) => p.key === "Presepsin")?.status === "high";
+    if (underlyingItems.includes("DM") || (crpValue !== undefined && crpValue >= 5) || presepsinAbnormal) {
+      atLeast("MEDIUM");
+    }
     if (diagnosisId === "acute_sinusitis") {
       if (symptoms.includes("Periorbital swelling")) atLeast("MEDIUM");
       // 안와/두개내 합병증을 시사하는 소견은 하나라도 있으면 역량 점수·시간대와 무관하게
@@ -361,7 +374,7 @@ export default function NotifyPage() {
       r = "LOW";
     }
     return r;
-  }, [selectedDiagnosis, tvcVisible, epiglottisSwelling, symptoms, vocalCordMovement, diagnosisId, larynxSwelling, aspirationDone, pusAmount, eomStatus, exophthalmos]);
+  }, [selectedDiagnosis, tvcVisible, epiglottisSwelling, symptoms, vocalCordMovement, vocalCordSide, diagnosisId, larynxSwelling, aspirationDone, pusAmount, eomStatus, exophthalmos, underlyingItems, parsedLabs]);
 
   const myCompetency = useMemo(() => {
     return myCompetencyScores[diagnosisId] ?? null;
