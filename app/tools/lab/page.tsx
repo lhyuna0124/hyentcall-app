@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { CONSENT_CATEGORIES, ConsentCategory, ConsentComment, ConsentProcedure, ConsentTemplate } from "@/lib/types";
 import { QUICK_COPY_TEXTS } from "@/lib/consentQuickCopy";
+import { isProcedureUnread, markProcedureSeen } from "@/lib/consentSeen";
 
 type SectionKey = "purpose" | "process" | "complications" | "precautions";
 const SECTIONS: { key: SectionKey; title: string }[] = [
@@ -41,6 +42,15 @@ export default function LabPage() {
   const procedureList = useMemo(() => procedures.filter((p) => p.category === activeCategory), [procedures, activeCategory]);
   const activeProcedure = procedures.find((p) => p.id === activeProcedureId) || null;
 
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+
+  function loadCommentCounts() {
+    fetch("/api/consent-comments/counts")
+      .then((r) => r.json())
+      .then((counts: Record<string, number>) => setCommentCounts(counts))
+      .catch(() => {});
+  }
+
   function loadProcedures(selectId?: string) {
     fetch("/api/consent-procedures")
       .then((r) => r.json())
@@ -62,6 +72,7 @@ export default function LabPage() {
   useEffect(() => {
     if (!user) return;
     loadProcedures();
+    loadCommentCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -170,7 +181,11 @@ export default function LabPage() {
   function loadComments(procedureId: string) {
     fetch(`/api/consent-comments?procedureId=${procedureId}`)
       .then((r) => r.json())
-      .then((d: ConsentComment[]) => setComments(d))
+      .then((d: ConsentComment[]) => {
+        setComments(d);
+        setCommentCounts((prev) => ({ ...prev, [procedureId]: d.length }));
+        if (user) markProcedureSeen(user.id, procedureId, d.length);
+      })
       .catch(() => {});
   }
 
@@ -355,6 +370,18 @@ export default function LabPage() {
                 >
                   {p.name}
                 </button>
+                {!!commentCounts[p.id] && (
+                  <span
+                    title={isProcedureUnread(user.id, p.id, commentCounts[p.id]) ? "새 댓글이 있습니다" : "댓글"}
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                      isProcedureUnread(user.id, p.id, commentCounts[p.id])
+                        ? "bg-red-100 text-red-600 font-semibold"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    💬 {commentCounts[p.id]}
+                  </span>
+                )}
                 {user.isAdmin && (
                   <button
                     type="button"

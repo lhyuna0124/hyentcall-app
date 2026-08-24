@@ -2,11 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { hasAnyUnread } from "@/lib/consentSeen";
 
 export default function NavBar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const [hasUnreadConsentComments, setHasUnreadConsentComments] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/consent-comments/counts")
+      .then((r) => r.json())
+      .then((counts: Record<string, number>) => setHasUnreadConsentComments(hasAnyUnread(user.id, counts)))
+      .catch(() => {});
+  }, [user, pathname]);
 
   if (!user) return null;
 
@@ -36,12 +47,15 @@ export default function NavBar() {
                 href={t.href}
                 className={
                   pathname === t.href
-                    ? "flex items-center gap-1 px-3 py-1.5 rounded-full bg-white text-brand-700 font-semibold shadow-sm flex-shrink-0"
-                    : "flex items-center gap-1 px-3 py-1.5 rounded-full text-blue-100 hover:bg-white/10 hover:text-white transition flex-shrink-0"
+                    ? "relative flex items-center gap-1 px-3 py-1.5 rounded-full bg-white text-brand-700 font-semibold shadow-sm flex-shrink-0"
+                    : "relative flex items-center gap-1 px-3 py-1.5 rounded-full text-blue-100 hover:bg-white/10 hover:text-white transition flex-shrink-0"
                 }
               >
                 <span>{t.icon}</span>
                 {t.label}
+                {t.href === "/tools/lab" && hasUnreadConsentComments && (
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500" title="새 댓글" />
+                )}
               </Link>
             ))}
           </nav>
