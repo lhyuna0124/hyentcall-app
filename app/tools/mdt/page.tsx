@@ -365,9 +365,9 @@ export default function MdtPage() {
 
   return (
     <div className="space-y-4 pb-24">
-      <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-xl font-bold text-brand-700">🧑‍⚕️ 다학제(MDT) 환자 정리</h1>
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-y-2 print:hidden">
+        <h1 className="text-xl font-bold text-brand-700 whitespace-nowrap">🧑‍⚕️ 다학제(MDT) 환자 정리</h1>
+        <div className="flex gap-2 flex-wrap">
           {loadedId && (
             <button
               className="btn-outline !px-3 !py-1.5 text-xs !text-red-500 !border-red-200"
@@ -434,7 +434,7 @@ export default function MdtPage() {
 
       <section className="card space-y-3 print:hidden">
         <h2 className="font-medium text-slate-700">1. 환자 인적사항 및 진단 정보</h2>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div><label className="label">등록번호 (*목록 저장 필수)</label><input className="input" value={regNo} onChange={(e) => setRegNo(e.target.value)} /></div>
           <div><label className="label">이름 (*목록 저장 필수)</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
           <div>
@@ -541,7 +541,7 @@ export default function MdtPage() {
       <section className="card space-y-2 print:hidden">
         <h2 className="font-medium text-slate-700">3. 수술 및 병리 기록</h2>
         {surgRows.map((row, i) => (
-          <div key={i} className="grid grid-cols-[1fr_120px_2fr_auto] gap-2 items-start">
+          <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_120px_2fr_auto] gap-2 items-start">
             <AutoTextarea
               placeholder="수술명 입력"
               value={row.name}
@@ -571,7 +571,7 @@ export default function MdtPage() {
       <section className="card space-y-2 print:hidden">
         <h2 className="font-medium text-slate-700">4. 영상 검사</h2>
         {imgRows.map((row, i) => (
-          <div key={i} className="grid grid-cols-[1fr_120px_2fr_auto] gap-2 items-start">
+          <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_120px_2fr_auto] gap-2 items-start">
             <AutoTextarea
               placeholder="검사명 입력"
               value={row.name}

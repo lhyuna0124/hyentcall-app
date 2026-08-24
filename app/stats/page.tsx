@@ -67,9 +67,9 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-brand-700">📊 응급실 입원 통계</h1>
-        <select className="input w-48" value={residentFilter} onChange={(e) => setResidentFilter(e.target.value)}>
+      <div className="flex items-center justify-between flex-wrap gap-y-2">
+        <h1 className="text-xl font-bold text-brand-700 whitespace-nowrap">📊 응급실 입원 통계</h1>
+        <select className="input w-48 flex-shrink-0" value={residentFilter} onChange={(e) => setResidentFilter(e.target.value)}>
           {residents.map((r) => (
             <option key={r} value={r}>
               {r}
