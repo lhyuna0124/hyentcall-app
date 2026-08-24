@@ -44,7 +44,7 @@ export default function StaffBoardSidebar() {
 
       {/* 모바일/태블릿: 본문 상단에 펼쳐보는 카드로 표시 */}
       <div className="2xl:hidden max-w-6xl mx-auto px-4 pt-4">
-        <details className="acc" open>
+        <details className="acc">
           <summary>📌 Staff 일정 / 공지</summary>
           <div className="acc-body">{body}</div>
         </details>
