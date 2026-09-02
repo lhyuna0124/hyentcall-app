@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { DEFAULT_RESIDENTS, Level, Resident } from "@/lib/residents";
+import { DEFAULT_RESIDENTS, LEVEL_OPTIONS, Level, Resident } from "@/lib/residents";
 import { DEFAULT_DIAGNOSES, DiagnosisRule, RiskLevel } from "@/lib/triage";
 import { EvaluationRecord, NotificationRecord, MdtPatient, QuickLink, FeedbackRecord } from "@/lib/types";
 
@@ -72,6 +72,25 @@ export default function AdminPage() {
   function deleteResident(id: string) {
     if (!confirm("이 계정을 삭제하시겠습니까?")) return;
     persistResidents(residents.filter((r) => r.id !== id));
+  }
+
+  // 관리자 계정은 항상 목록 가장 아래에 표시됩니다. 순서 변경은 같은 그룹(일반/관리자) 안에서만 가능합니다.
+  const displayResidents = useMemo(
+    () => [...residents.filter((r) => !r.isAdmin), ...residents.filter((r) => r.isAdmin)],
+    [residents]
+  );
+
+  function moveResident(id: string, direction: -1 | 1) {
+    const nonAdmins = residents.filter((r) => !r.isAdmin);
+    const admins = residents.filter((r) => r.isAdmin);
+    const isAdminRow = residents.find((r) => r.id === id)?.isAdmin;
+    const group = isAdminRow ? admins : nonAdmins;
+    const idx = group.findIndex((r) => r.id === id);
+    const swapIdx = idx + direction;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= group.length) return;
+    const reordered = [...group];
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+    persistResidents(isAdminRow ? [...nonAdmins, ...reordered] : [...reordered, ...admins]);
   }
 
   // 전공의 요약/역량평가는 레지던트(R1~R4)만 대상으로 합니다 (H&N RN 등 다른 계정은 제외).
@@ -444,7 +463,8 @@ export default function AdminPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-slate-200">
-              <th className="py-1.5">이름</th>
+              <th className="py-1.5"></th>
+              <th>이름</th>
               <th>연차/구분</th>
               <th>전화번호 뒷자리</th>
               <th>관리자</th>
@@ -452,58 +472,81 @@ export default function AdminPage() {
             </tr>
           </thead>
           <tbody>
-            {residents.map((r) => (
-              <tr key={r.id} className="border-b border-slate-100 last:border-0">
-                <td className="py-1">
-                  <input
-                    className="input !py-1 !w-32"
-                    value={r.name}
-                    onChange={(e) => setResidents((prev) => prev.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
-                    onBlur={(e) => updateResident(r.id, { name: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <select
-                    className="input !py-1 !w-28"
-                    value={r.level}
-                    onChange={(e) => updateResident(r.id, { level: e.target.value as Level })}
-                  >
-                    {(["R1", "R2", "R3", "R4", "ATTENDING", "H&N RN"] as Level[]).map((lv) => (
-                      <option key={lv} value={lv}>
-                        {lv}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    className="input !py-1 !w-20"
-                    maxLength={4}
-                    value={r.phoneLast4}
-                    onChange={(e) => setResidents((prev) => prev.map((x) => (x.id === r.id ? { ...x, phoneLast4: e.target.value } : x)))}
-                    onBlur={(e) => updateResident(r.id, { phoneLast4: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={!!r.isAdmin}
-                    onChange={(e) => updateResident(r.id, { isAdmin: e.target.checked })}
-                  />
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    onClick={() => deleteResident(r.id)}
-                    className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-1"
-                  >
-                    삭제
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {displayResidents.map((r) => {
+              const group = displayResidents.filter((x) => !!x.isAdmin === !!r.isAdmin);
+              const groupIdx = group.findIndex((x) => x.id === r.id);
+              return (
+                <tr key={r.id} className="border-b border-slate-100 last:border-0">
+                  <td className="py-1 pr-1 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => moveResident(r.id, -1)}
+                      disabled={groupIdx === 0}
+                      className="text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:cursor-not-allowed px-0.5"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveResident(r.id, 1)}
+                      disabled={groupIdx === group.length - 1}
+                      className="text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:cursor-not-allowed px-0.5"
+                    >
+                      ▼
+                    </button>
+                  </td>
+                  <td className="py-1">
+                    <input
+                      className="input !py-1 !w-32"
+                      value={r.name}
+                      onChange={(e) => setResidents((prev) => prev.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
+                      onBlur={(e) => updateResident(r.id, { name: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      className="input !py-1 !w-28"
+                      value={r.level}
+                      onChange={(e) => updateResident(r.id, { level: e.target.value as Level })}
+                    >
+                      {LEVEL_OPTIONS.map((lv) => (
+                        <option key={lv} value={lv}>
+                          {lv}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      className="input !py-1 !w-20"
+                      maxLength={4}
+                      value={r.phoneLast4}
+                      onChange={(e) => setResidents((prev) => prev.map((x) => (x.id === r.id ? { ...x, phoneLast4: e.target.value } : x)))}
+                      onBlur={(e) => updateResident(r.id, { phoneLast4: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={!!r.isAdmin}
+                      onChange={(e) => updateResident(r.id, { isAdmin: e.target.checked })}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => deleteResident(r.id)}
+                      className="text-red-400 hover:text-red-600 text-xs border border-red-200 rounded px-2 py-1"
+                    >
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        <p className="text-xs text-slate-400">관리자로 체크된 계정은 항상 목록 가장 아래에 표시됩니다. ▲▼로 같은 그룹(일반/관리자) 안에서 순서를 바꿀 수 있습니다.</p>
         {!addingResident ? (
           <button type="button" className="btn-outline !py-1" onClick={() => setAddingResident(true)}>
             + 계정 추가
@@ -522,7 +565,7 @@ export default function AdminPage() {
               value={newResident.level}
               onChange={(e) => setNewResident((p) => ({ ...p, level: e.target.value as Level }))}
             >
-              {(["R1", "R2", "R3", "R4", "ATTENDING", "H&N RN"] as Level[]).map((lv) => (
+              {LEVEL_OPTIONS.map((lv) => (
                 <option key={lv} value={lv}>
                   {lv}
                 </option>
