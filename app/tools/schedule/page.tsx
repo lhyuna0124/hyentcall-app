@@ -40,9 +40,32 @@ function siteLabel(site: ConferenceSite) {
   return site;
 }
 
-// Staff lecture(교수 강의)와 전공의 시험은 발표자 개념이 없어 토픽/저널 발표자 입력을 표시하지 않습니다.
+// Staff lecture(교수 강의)/전공의 시험/휴일/학회는 발표자 개념이 없어 토픽/저널 발표자 입력을 표시하지 않습니다.
 function hasPresenterRole(category: string) {
-  return !category.includes("Staff") && !category.includes("시험");
+  return !category.includes("Staff") && !category.includes("시험") && !category.includes("휴일") && !category.includes("학회");
+}
+
+type EditSite = "서울" | "구리";
+
+// site === "공통"(Zoom 합동 진행)이면 병원 구분 없이 하나의 발표자를 씁니다.
+function getPresenter(e: ConferenceEntry, field: "topic" | "journal", editSite: EditSite) {
+  const site: EditSite = e.site === "공통" ? "서울" : editSite;
+  return site === "서울" ? e[`${field}PresenterSeoul`] : e[`${field}PresenterGuri`];
+}
+function presenterPatch(e: ConferenceEntry, field: "topic" | "journal", editSite: EditSite, value: string): Partial<ConferenceEntry> {
+  if (e.site === "공통") {
+    return { [`${field}PresenterSeoul`]: value, [`${field}PresenterGuri`]: value };
+  }
+  return { [`${field}Presenter${editSite === "서울" ? "Seoul" : "Guri"}`]: value };
+}
+// 읽기 모드: 보기 설정이 특정 병원이면 그 병원 발표자만, "전체"면 서로 다를 때만 둘 다 보여줍니다.
+function displayPresenter(e: ConferenceEntry, field: "topic" | "journal", sitePref: "all" | "서울" | "구리") {
+  const seoul = e[`${field}PresenterSeoul`];
+  const guri = e[`${field}PresenterGuri`];
+  if (e.site === "공통" || sitePref === "서울") return seoul;
+  if (sitePref === "구리") return guri;
+  if (seoul && guri && seoul !== guri) return `서울 ${seoul} · 구리 ${guri}`;
+  return seoul || guri;
 }
 
 export default function SchedulePage() {
@@ -369,6 +392,7 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [sitePref, setSitePref] = useState<SitePref>("all");
+  const [editSite, setEditSite] = useState<EditSite>("서울");
 
   useEffect(() => {
     fetch("/api/conference-schedule")
@@ -387,6 +411,7 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
   function startEditing() {
     if (!schedule) return;
     setDraft(schedule.entries.map((e) => ({ ...e })));
+    if (sitePref === "서울" || sitePref === "구리") setEditSite(sitePref);
     setEditing(true);
   }
 
@@ -417,8 +442,10 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
         date: "",
         category: "",
         topic: "",
-        topicPresenter: "",
-        journalPresenter: "",
+        topicPresenterSeoul: "",
+        topicPresenterGuri: "",
+        journalPresenterSeoul: "",
+        journalPresenterGuri: "",
         site: "",
       },
     ]);
@@ -461,11 +488,29 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
       )}
 
       {editing && (
-        <p className="text-xs text-slate-400">
-          {isAdmin
-            ? "모든 항목을 수정할 수 있습니다. (공통 = Zoom으로 양 병원 동시 진행·발표자 1명, 서울/구리 = 그 날만 한쪽 병원 주제가 다름)"
-            : "날짜 / 발표자 이름만 수정할 수 있습니다. (월·분류·병원·주제는 관리자만 수정 가능)"}
-        </p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-slate-500 font-medium">편집할 병원 발표자</span>
+            {(["서울", "구리"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setEditSite(s)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                  editSite === s ? "bg-brand-700 text-white" : "border border-slate-300 text-slate-600"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400">
+            {isAdmin
+              ? "모든 항목을 수정할 수 있습니다. (공통 = Zoom으로 양 병원 동시 진행·발표자 1명, 서울/구리 = 그 날만 한쪽 병원 주제가 다름)"
+              : "날짜 / 발표자 이름만 수정할 수 있습니다. (월·분류·병원·주제는 관리자만 수정 가능)"}{" "}
+            발표자 입력란은 위에서 고른 병원 것만 수정되며, 공통(Zoom) 항목은 양쪽에 동시에 반영됩니다.
+          </p>
+        </div>
       )}
 
       {groups.map((g) => (
@@ -535,14 +580,14 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
                       <input
                         className="input !py-1 !px-1 text-xs w-20"
                         placeholder="토픽 발표자"
-                        value={e.topicPresenter}
-                        onChange={(ev) => updateEntry(e.id, { topicPresenter: ev.target.value })}
+                        value={getPresenter(e, "topic", editSite)}
+                        onChange={(ev) => updateEntry(e.id, presenterPatch(e, "topic", editSite, ev.target.value))}
                       />
                       <input
                         className="input !py-1 !px-1 text-xs w-20"
                         placeholder="저널 발표자"
-                        value={e.journalPresenter}
-                        onChange={(ev) => updateEntry(e.id, { journalPresenter: ev.target.value })}
+                        value={getPresenter(e, "journal", editSite)}
+                        onChange={(ev) => updateEntry(e.id, presenterPatch(e, "journal", editSite, ev.target.value))}
                       />
                     </>
                   )}
@@ -564,13 +609,17 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${siteClass(e.site)}`}>{siteLabel(e.site)}</span>
                   )}
                   <span className="flex-1 text-sm text-slate-700">{e.topic}</span>
-                  {hasPresenterRole(e.category) && (e.topicPresenter || e.journalPresenter) && (
-                    <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap text-right">
-                      {[e.topicPresenter && `발표 ${e.topicPresenter}`, e.journalPresenter && `저널 ${e.journalPresenter}`]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  )}
+                  {hasPresenterRole(e.category) &&
+                    (() => {
+                      const topicText = displayPresenter(e, "topic", sitePref);
+                      const journalText = displayPresenter(e, "journal", sitePref);
+                      if (!topicText && !journalText) return null;
+                      return (
+                        <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap text-right">
+                          {[topicText && `발표 ${topicText}`, journalText && `저널 ${journalText}`].filter(Boolean).join(" · ")}
+                        </span>
+                      );
+                    })()}
                 </div>
               ) : (
                 <div key={e.id} className={`py-2 px-2 -mx-2 rounded-lg bg-amber-50 text-amber-700 text-sm ${dimmed ? "opacity-40 grayscale" : ""}`}>
