@@ -135,13 +135,19 @@ export interface ClinicSchedule {
 }
 
 // --- 컨퍼런스 스케쥴 ---
+// 서울/구리가 같은 날 같이 진행하면 "공통", 한쪽 병원만 진행하면 "서울"/"구리" (관리자만 수정 가능)
+export type ConferenceSite = "공통" | "서울" | "구리";
+export const CONFERENCE_SITE_OPTIONS: ConferenceSite[] = ["공통", "서울", "구리"];
+
 export interface ConferenceEntry {
   id: string;
-  month: string; // 화면에 묶어서 표시할 기준 (예: "9월") - 실제 날짜가 다음달로 넘어가도(전공의 시험 등) 원래 속한 달 기준
-  date: string; // 자유 기술 (예: "9월 7일", "10월 2일", "추석 9월 24~27일")
-  category: string; // 이과/비과/두경부/Staff lecture/전공의 N차 시험/공지 등 자유 기술
-  topic: string; // 주제
-  assignee: string; // 담당 연차 또는 발표자 이름
+  month: string; // 화면에 묶어서 표시할 기준 (예: "9월") - 실제 날짜가 다음달로 넘어가도(전공의 시험 등) 원래 속한 달 기준 (관리자만 수정 가능)
+  date: string; // 자유 기술 (예: "9월 7일", "10월 2일", "추석 9월 24~27일") - 전공의도 수정 가능
+  category: string; // 이과/비과/두경부/Staff lecture/전공의 N차 시험/공지 등 자유 기술 (관리자만 수정 가능)
+  topic: string; // 주제 (관리자만 수정 가능)
+  topicPresenter: string; // 토픽 발표자 - 전공의도 수정 가능
+  journalPresenter: string; // 저널 발표자 - 전공의도 수정 가능
+  site: ConferenceSite; // 관리자만 수정 가능
 }
 
 export interface ConferenceSchedule {
