@@ -1,9 +1,31 @@
-import { ConferenceEntry } from "./types";
+import { ConferenceEntry, ConferenceSite } from "./types";
 
 // 실험실이 아닌 정식 기능입니다. 관리자 화면에서 수정한 내용은 KV에 저장되며,
 // 이 값은 최초 1회 기본값으로만 쓰입니다 (/api/conference-schedule 참고).
-function entry(id: string, month: string, date: string, category: string, topic: string, assignee = ""): ConferenceEntry {
-  return { id, month, date, category, topic, assignee };
+// topicPresenter/journalPresenter는 초기값으로 두 병원 모두에 동일하게 채워두고,
+// 실제로는 담당 전공의가 각자 자기 병원 발표자로 고쳐 씁니다.
+function entry(
+  id: string,
+  month: string,
+  date: string,
+  category: string,
+  topic: string,
+  topicPresenter = "",
+  journalPresenter = "",
+  site: ConferenceSite = ""
+): ConferenceEntry {
+  return {
+    id,
+    month,
+    date,
+    category,
+    topic,
+    topicPresenterSeoul: topicPresenter,
+    topicPresenterGuri: topicPresenter,
+    journalPresenterSeoul: journalPresenter,
+    journalPresenterGuri: journalPresenter,
+    site,
+  };
 }
 
 export const DEFAULT_CONFERENCE_ENTRIES: ConferenceEntry[] = [
