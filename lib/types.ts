@@ -135,9 +135,10 @@ export interface ClinicSchedule {
 }
 
 // --- 컨퍼런스 스케쥴 ---
-// 서울/구리가 같은 날 같이 진행하면 "공통", 한쪽 병원만 진행하면 "서울"/"구리" (관리자만 수정 가능)
-export type ConferenceSite = "공통" | "서울" | "구리";
-export const CONFERENCE_SITE_OPTIONS: ConferenceSite[] = ["공통", "서울", "구리"];
+// 기본값 ""(특별히 표시 안 함, 대부분의 경우)이며, 관리자가 "공통"(Zoom으로 양 병원 동시 진행·발표자 1명)이나
+// 서울/구리(그 날만 한쪽 병원 주제가 다름) 중 하나로 표시할 수 있습니다. (관리자만 수정 가능)
+export type ConferenceSite = "" | "공통" | "서울" | "구리";
+export const CONFERENCE_SITE_OPTIONS: ConferenceSite[] = ["", "공통", "서울", "구리"];
 
 export interface ConferenceEntry {
   id: string;
@@ -145,10 +146,8 @@ export interface ConferenceEntry {
   date: string; // 자유 기술 (예: "9월 7일", "10월 2일", "추석 9월 24~27일") - 전공의도 수정 가능
   category: string; // 이과/비과/두경부/Staff lecture/전공의 N차 시험/공지 등 자유 기술 (관리자만 수정 가능)
   topic: string; // 주제 (관리자만 수정 가능)
-  topicAssignee: string; // 토픽 발표 담당 연차 또는 교수명 (예: "R2", "R3/4", "태경") - 관리자만 수정 가능
-  topicPresenterName: string; // 토픽 발표자 실명 - 전공의도 수정 가능
-  journalAssignee: string; // 저널 발표 담당 연차 또는 교수명 - 관리자만 수정 가능
-  journalPresenterName: string; // 저널 발표자 실명 - 전공의도 수정 가능
+  topicPresenter: string; // 토픽 발표자 - 전공의가 자유롭게 입력 (Staff lecture/시험은 해당 없음)
+  journalPresenter: string; // 저널 발표자 - 전공의가 자유롭게 입력
   site: ConferenceSite; // 관리자만 수정 가능
 }
 

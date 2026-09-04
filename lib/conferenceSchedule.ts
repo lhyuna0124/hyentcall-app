@@ -8,11 +8,11 @@ function entry(
   date: string,
   category: string,
   topic: string,
-  topicAssignee = "",
-  journalAssignee = "",
-  site: ConferenceSite = "공통"
+  topicPresenter = "",
+  journalPresenter = "",
+  site: ConferenceSite = ""
 ): ConferenceEntry {
-  return { id, month, date, category, topic, topicAssignee, topicPresenterName: "", journalAssignee, journalPresenterName: "", site };
+  return { id, month, date, category, topic, topicPresenter, journalPresenter, site };
 }
 
 export const DEFAULT_CONFERENCE_ENTRIES: ConferenceEntry[] = [

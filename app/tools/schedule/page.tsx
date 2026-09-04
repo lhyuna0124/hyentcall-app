@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { CLINIC_DAYS, ClinicSchedule, ClinicSite, ConferenceEntry, ConferenceSchedule, ConferenceSite } from "@/lib/types";
+import { CLINIC_DAYS, ClinicSchedule, ClinicSite, CONFERENCE_SITE_OPTIONS, ConferenceEntry, ConferenceSchedule, ConferenceSite } from "@/lib/types";
 
 const SITES: ClinicSite[] = ["서울", "구리"];
 
@@ -35,15 +35,14 @@ function siteClass(site: ConferenceSite) {
   return "bg-slate-100 text-slate-500";
 }
 
+function siteLabel(site: ConferenceSite) {
+  if (site === "공통") return "🔗 공통(Zoom)";
+  return site;
+}
+
 // Staff lecture(교수 강의)와 전공의 시험은 발표자 개념이 없어 토픽/저널 발표자 입력을 표시하지 않습니다.
 function hasPresenterRole(category: string) {
   return !category.includes("Staff") && !category.includes("시험");
-}
-
-// 담당(연차/교수)과 발표자 실명을 합쳐서 보여줍니다 (예: "R3/4(이하경)").
-function presenterText(assignee: string, name: string) {
-  if (assignee && name) return `${assignee}(${name})`;
-  return assignee || name;
 }
 
 export default function SchedulePage() {
@@ -418,11 +417,9 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
         date: "",
         category: "",
         topic: "",
-        topicAssignee: "",
-        topicPresenterName: "",
-        journalAssignee: "",
-        journalPresenterName: "",
-        site: "공통",
+        topicPresenter: "",
+        journalPresenter: "",
+        site: "",
       },
     ]);
   }
@@ -466,8 +463,8 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
       {editing && (
         <p className="text-xs text-slate-400">
           {isAdmin
-            ? "모든 항목을 수정할 수 있습니다. (공통 진행 = Zoom으로 양 병원 동시 진행, 발표자 1명·일정 동일)"
-            : "날짜 / 발표자 이름만 수정할 수 있습니다. (월·분류·병원·주제·담당 연차는 관리자만 수정 가능)"}
+            ? "모든 항목을 수정할 수 있습니다. (공통 = Zoom으로 양 병원 동시 진행·발표자 1명, 서울/구리 = 그 날만 한쪽 병원 주제가 다름)"
+            : "날짜 / 발표자 이름만 수정할 수 있습니다. (월·분류·병원·주제는 관리자만 수정 가능)"}
         </p>
       )}
 
@@ -476,119 +473,83 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
           <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 mb-1">{g.month}</h3>
           <div className="divide-y divide-slate-100">
             {g.entries.map((e) => {
-              const dimmed = !editing && sitePref !== "all" && e.site !== "공통" && e.site !== sitePref;
+              const dimmed = !editing && sitePref !== "all" && (e.site === "서울" || e.site === "구리") && e.site !== sitePref;
               return editing ? (
-                <div key={e.id} className="py-1.5 space-y-1.5 border-b border-slate-100 last:border-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {isAdmin ? (
-                      <input
-                        className="input !py-1 !px-1 text-xs w-14"
-                        placeholder="월"
-                        value={e.month}
-                        onChange={(ev) => updateEntry(e.id, { month: ev.target.value })}
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400 w-14 flex-shrink-0">{e.month}</span>
-                    )}
+                <div key={e.id} className="flex items-center gap-2 py-1.5 flex-wrap border-b border-slate-100 last:border-0">
+                  {isAdmin ? (
                     <input
-                      className="input !py-1 !px-1 text-xs w-20"
-                      placeholder="날짜"
-                      value={e.date}
-                      onChange={(ev) => updateEntry(e.id, { date: ev.target.value })}
+                      className="input !py-1 !px-1 text-xs w-14"
+                      placeholder="월"
+                      value={e.month}
+                      onChange={(ev) => updateEntry(e.id, { month: ev.target.value })}
                     />
-                    {isAdmin ? (
-                      <input
-                        className="input !py-1 !px-1 text-xs w-24"
-                        placeholder="분류"
-                        value={e.category}
-                        onChange={(ev) => updateEntry(e.id, { category: ev.target.value })}
-                      />
-                    ) : (
-                      e.category && <span className="text-xs text-slate-400 flex-shrink-0">{e.category}</span>
-                    )}
-                    {isAdmin ? (
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <label className="flex items-center gap-1 text-[11px] text-slate-500 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={e.site === "공통"}
-                            onChange={(ev) => updateEntry(e.id, { site: ev.target.checked ? "공통" : "서울" })}
-                          />
-                          공통 진행
-                        </label>
-                        {e.site !== "공통" && (
-                          <div className="flex gap-1">
-                            {(["서울", "구리"] as const).map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                onClick={() => updateEntry(e.id, { site: s })}
-                                className={`chip border !px-2 !py-0.5 text-[11px] ${
-                                  e.site === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"
-                                }`}
-                              >
-                                {s}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400 flex-shrink-0">{e.site === "공통" ? "🔗 공통(Zoom)" : e.site}</span>
-                    )}
-                    {isAdmin ? (
-                      <input
-                        className="input !py-1 !px-1 text-xs flex-1 min-w-[160px]"
-                        placeholder="주제 / 내용"
-                        value={e.topic}
-                        onChange={(ev) => updateEntry(e.id, { topic: ev.target.value })}
-                      />
-                    ) : (
-                      <span className="flex-1 text-xs text-slate-600 min-w-[160px]">{e.topic}</span>
-                    )}
-                    {isAdmin && (
-                      <button type="button" onClick={() => deleteEntry(e.id)} className="text-xs text-red-500 hover:text-red-700 px-1 flex-shrink-0">
-                        삭제
-                      </button>
-                    )}
-                  </div>
-                  {hasPresenterRole(e.category) && (
-                    <div className="flex items-center gap-1.5 flex-wrap pl-1">
-                      <span className="text-[11px] text-slate-400 flex-shrink-0">토픽</span>
-                      {isAdmin ? (
-                        <input
-                          className="input !py-1 !px-1 text-xs w-20"
-                          placeholder="담당(연차/교수)"
-                          value={e.topicAssignee}
-                          onChange={(ev) => updateEntry(e.id, { topicAssignee: ev.target.value })}
-                        />
-                      ) : (
-                        e.topicAssignee && <span className="text-xs text-slate-400 flex-shrink-0">{e.topicAssignee}</span>
-                      )}
-                      <input
-                        className="input !py-1 !px-1 text-xs w-20"
-                        placeholder="발표자 이름"
-                        value={e.topicPresenterName}
-                        onChange={(ev) => updateEntry(e.id, { topicPresenterName: ev.target.value })}
-                      />
-                      <span className="text-[11px] text-slate-400 flex-shrink-0 ml-2">저널</span>
-                      {isAdmin ? (
-                        <input
-                          className="input !py-1 !px-1 text-xs w-20"
-                          placeholder="담당(연차/교수)"
-                          value={e.journalAssignee}
-                          onChange={(ev) => updateEntry(e.id, { journalAssignee: ev.target.value })}
-                        />
-                      ) : (
-                        e.journalAssignee && <span className="text-xs text-slate-400 flex-shrink-0">{e.journalAssignee}</span>
-                      )}
-                      <input
-                        className="input !py-1 !px-1 text-xs w-20"
-                        placeholder="발표자 이름"
-                        value={e.journalPresenterName}
-                        onChange={(ev) => updateEntry(e.id, { journalPresenterName: ev.target.value })}
-                      />
+                  ) : (
+                    <span className="text-xs text-slate-400 w-14 flex-shrink-0">{e.month}</span>
+                  )}
+                  <input
+                    className="input !py-1 !px-1 text-xs w-20"
+                    placeholder="날짜"
+                    value={e.date}
+                    onChange={(ev) => updateEntry(e.id, { date: ev.target.value })}
+                  />
+                  {isAdmin ? (
+                    <input
+                      className="input !py-1 !px-1 text-xs w-24"
+                      placeholder="분류"
+                      value={e.category}
+                      onChange={(ev) => updateEntry(e.id, { category: ev.target.value })}
+                    />
+                  ) : (
+                    e.category && <span className="text-xs text-slate-400 flex-shrink-0">{e.category}</span>
+                  )}
+                  {isAdmin ? (
+                    <div className="flex gap-1 flex-shrink-0">
+                      {CONFERENCE_SITE_OPTIONS.map((s) => (
+                        <button
+                          key={s || "default"}
+                          type="button"
+                          onClick={() => updateEntry(e.id, { site: s })}
+                          className={`chip border !px-2 !py-0.5 text-[11px] ${
+                            e.site === s ? "bg-brand-600 text-white border-brand-600" : "border-slate-300 text-slate-600"
+                          }`}
+                        >
+                          {s === "" ? "기본" : s}
+                        </button>
+                      ))}
                     </div>
+                  ) : (
+                    e.site && <span className="text-xs text-slate-400 flex-shrink-0">{siteLabel(e.site)}</span>
+                  )}
+                  {isAdmin ? (
+                    <input
+                      className="input !py-1 !px-1 text-xs flex-1 min-w-[140px]"
+                      placeholder="주제 / 내용"
+                      value={e.topic}
+                      onChange={(ev) => updateEntry(e.id, { topic: ev.target.value })}
+                    />
+                  ) : (
+                    <span className="flex-1 text-xs text-slate-600 min-w-[140px]">{e.topic}</span>
+                  )}
+                  {hasPresenterRole(e.category) && (
+                    <>
+                      <input
+                        className="input !py-1 !px-1 text-xs w-20"
+                        placeholder="토픽 발표자"
+                        value={e.topicPresenter}
+                        onChange={(ev) => updateEntry(e.id, { topicPresenter: ev.target.value })}
+                      />
+                      <input
+                        className="input !py-1 !px-1 text-xs w-20"
+                        placeholder="저널 발표자"
+                        value={e.journalPresenter}
+                        onChange={(ev) => updateEntry(e.id, { journalPresenter: ev.target.value })}
+                      />
+                    </>
+                  )}
+                  {isAdmin && (
+                    <button type="button" onClick={() => deleteEntry(e.id)} className="text-xs text-red-500 hover:text-red-700 px-1 flex-shrink-0">
+                      삭제
+                    </button>
                   )}
                 </div>
               ) : e.date ? (
@@ -599,16 +560,13 @@ function ConferenceScheduleSection({ isAdmin }: { isAdmin: boolean }) {
                       {e.category}
                     </span>
                   )}
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${siteClass(e.site)}`}>
-                    {e.site === "공통" ? "🔗 공통(Zoom)" : e.site}
-                  </span>
+                  {e.site && (
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${siteClass(e.site)}`}>{siteLabel(e.site)}</span>
+                  )}
                   <span className="flex-1 text-sm text-slate-700">{e.topic}</span>
-                  {hasPresenterRole(e.category) && (e.topicAssignee || e.topicPresenterName || e.journalAssignee || e.journalPresenterName) && (
+                  {hasPresenterRole(e.category) && (e.topicPresenter || e.journalPresenter) && (
                     <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap text-right">
-                      {[
-                        (e.topicAssignee || e.topicPresenterName) && `발표 ${presenterText(e.topicAssignee, e.topicPresenterName)}`,
-                        (e.journalAssignee || e.journalPresenterName) && `저널 ${presenterText(e.journalAssignee, e.journalPresenterName)}`,
-                      ]
+                      {[e.topicPresenter && `발표 ${e.topicPresenter}`, e.journalPresenter && `저널 ${e.journalPresenter}`]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>

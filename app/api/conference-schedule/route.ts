@@ -8,19 +8,21 @@ const KEY = "conference_schedule";
 export async function GET() {
   const saved = await kvGet<ConferenceSchedule>(KEY);
   const base = saved ?? { entries: DEFAULT_CONFERENCE_ENTRIES, updatedAt: "" };
-  // 예전 데이터(assignee 단일 필드, 또는 그 다음 버전의 topicPresenter/journalPresenter)를
-  // 새 필드(담당 연차·교수 / 발표자 실명 4분할 + site)로 이관합니다.
+  // 예전 데이터(assignee 단일 필드, 또는 담당연차+실명으로 나뉘었던 버전)를
+  // 지금의 단일 발표자 필드로 이관합니다. 담당연차/실명이 둘 다 있었다면 "R2(이하경)"처럼 합칩니다.
+  const fold = (assignee?: string, name?: string, legacy?: string) => {
+    if (assignee && name) return `${assignee}(${name})`;
+    return assignee || name || legacy || "";
+  };
   const entries = base.entries.map((e: any) => ({
     id: e.id,
     month: e.month ?? "",
     date: e.date ?? "",
     category: e.category ?? "",
     topic: e.topic ?? "",
-    topicAssignee: e.topicAssignee ?? e.topicPresenter ?? e.assignee ?? "",
-    topicPresenterName: e.topicPresenterName ?? "",
-    journalAssignee: e.journalAssignee ?? e.journalPresenter ?? "",
-    journalPresenterName: e.journalPresenterName ?? "",
-    site: e.site ?? "공통",
+    topicPresenter: e.topicPresenter ?? fold(e.topicAssignee, e.topicPresenterName, e.assignee),
+    journalPresenter: e.journalPresenter ?? fold(e.journalAssignee, e.journalPresenterName),
+    site: e.site ?? "",
   }));
   return NextResponse.json({ ...base, entries });
 }
