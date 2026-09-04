@@ -145,8 +145,10 @@ export interface ConferenceEntry {
   date: string; // 자유 기술 (예: "9월 7일", "10월 2일", "추석 9월 24~27일") - 전공의도 수정 가능
   category: string; // 이과/비과/두경부/Staff lecture/전공의 N차 시험/공지 등 자유 기술 (관리자만 수정 가능)
   topic: string; // 주제 (관리자만 수정 가능)
-  topicPresenter: string; // 토픽 발표자 - 전공의도 수정 가능
-  journalPresenter: string; // 저널 발표자 - 전공의도 수정 가능
+  topicAssignee: string; // 토픽 발표 담당 연차 또는 교수명 (예: "R2", "R3/4", "태경") - 관리자만 수정 가능
+  topicPresenterName: string; // 토픽 발표자 실명 - 전공의도 수정 가능
+  journalAssignee: string; // 저널 발표 담당 연차 또는 교수명 - 관리자만 수정 가능
+  journalPresenterName: string; // 저널 발표자 실명 - 전공의도 수정 가능
   site: ConferenceSite; // 관리자만 수정 가능
 }
 
