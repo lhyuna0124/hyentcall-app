@@ -826,6 +826,7 @@ export default function NotifyPage() {
       <details className="acc" open={openSections.underlying} onToggle={(e) => setOpenSections((p) => ({ ...p, underlying: (e.target as HTMLDetailsElement).open }))}>
         <summary>기저질환 / 치과 치료력</summary>
         <div className="acc-body">
+          <p className="text-xs text-slate-400 mb-1">아무것도 선택하지 않으면 자동으로 "기저질환 (-)"로 표시됩니다.</p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-500 whitespace-nowrap">기저질환</span>
