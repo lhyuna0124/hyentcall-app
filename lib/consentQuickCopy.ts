@@ -1,6 +1,7 @@
 import { ConsentCategory } from "./types";
 import { NECK_DISSECTION_NERVE_TEXT } from "./neckDissectionNerves";
 import { TRACHEOSTOMY_CONSENT_TEXT } from "./tracheostomyConsent";
+import { CWD_CONSENT_TEXT } from "./cwdConsent";
 
 export interface QuickCopyText {
   id: string;
@@ -16,6 +17,6 @@ export const QUICK_COPY_TEXTS: Record<ConsentCategory, QuickCopyText[]> = {
     { id: "tracheostomy", label: "<tracheostomy>", text: TRACHEOSTOMY_CONSENT_TEXT },
   ],
   비과: [],
-  이과: [],
+  이과: [{ id: "cwd", label: "<CWD>", text: CWD_CONSENT_TEXT }],
   "일반 local": [],
 };

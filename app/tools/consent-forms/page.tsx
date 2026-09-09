@@ -7,6 +7,8 @@ import { CONSENT_CATEGORIES, ConsentCategory, ConsentComment, ConsentProcedure, 
 import { QUICK_COPY_TEXTS } from "@/lib/consentQuickCopy";
 import { isProcedureUnread, markProcedureSeen } from "@/lib/consentSeen";
 
+const NO_SURGERY_SYMPTOM_TEXT = "증상 지속 및 악화";
+
 type SectionKey = "purpose" | "process" | "complications" | "precautions";
 const SECTIONS: { key: SectionKey; title: string }[] = [
   { key: "purpose", title: "1. 수술(시술, 검사)의 목적 및 효과" },
@@ -524,8 +526,24 @@ export default function ConsentFormsPage() {
                 ))}
               </div>
             )}
-            {template.updatedAt && !editing && (
-              <p className="text-[10px] text-slate-300">업데이트: {new Date(template.updatedAt).toLocaleString("ko-KR")}</p>
+            {!editing && (
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => copyQuickText("no-surgery-symptom", NO_SURGERY_SYMPTOM_TEXT)}
+                  className={
+                    copiedKey === "no-surgery-symptom"
+                      ? "px-2.5 py-1 rounded-full bg-emerald-600 text-white text-[11px] font-semibold"
+                      : "px-2.5 py-1 rounded-full border border-slate-300 text-[11px] text-slate-500 hover:bg-slate-50"
+                  }
+                  title="수술하지 않았을 경우를 기술하는 란에 붙여넣으세요."
+                >
+                  {copiedKey === "no-surgery-symptom" ? "복사되었습니다" : "📋 '증상 지속 및 악화' 복사"}
+                </button>
+                {template.updatedAt && (
+                  <p className="text-[10px] text-slate-300">업데이트: {new Date(template.updatedAt).toLocaleString("ko-KR")}</p>
+                )}
+              </div>
             )}
           </section>
 
